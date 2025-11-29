@@ -15,4 +15,12 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // Suppress deprecation warnings from Vue Black Dashboard template
+        silenceDeprecations: ['import', 'global-builtin', 'color-functions', 'slash-div']
+      }
+    }
+  }
 })
