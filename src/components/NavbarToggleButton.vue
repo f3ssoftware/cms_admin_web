@@ -9,7 +9,9 @@
     aria-label="Toggle navigation"
     @click="handleClick"
   >
-    <span class="navbar-toggler-icon"></span>
+    <span class="navbar-toggler-bar"></span>
+    <span class="navbar-toggler-bar"></span>
+    <span class="navbar-toggler-bar"></span>
   </button>
 </template>
 <script>
@@ -34,6 +36,7 @@ export default {
   },
   methods: {
     handleClick(event) {
+      console.log('NavbarToggleButton clicked', event);
       // Emit click event to parent
       this.$emit('click', event);
     },

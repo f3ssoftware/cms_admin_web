@@ -13,9 +13,16 @@ export default {
         this.$rtl.disableRTL();
       }
     },
-    toggleNavOpen() {
+    toggleNavOpen(newVal) {
+      console.log('App.vue toggleNavOpen called with:', newVal);
       let root = document.getElementsByTagName("html")[0];
-      root.classList.toggle("nav-open");
+      if (newVal) {
+        root.classList.add("nav-open");
+        console.log('Added nav-open class to html');
+      } else {
+        root.classList.remove("nav-open");
+        console.log('Removed nav-open class from html');
+      }
     },
   },
   mounted() {

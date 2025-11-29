@@ -324,5 +324,43 @@ export default {
   background: #525f7f !important;
   background-image: none !important;
 }
+
+/* Ensure mobile toggle button is visible on mobile - Global override */
+@media (max-width: 991.98px) {
+  .navbar .navbar-toggle-btn.mobile-only,
+  .navbar .navbar-toggler.mobile-only,
+  .main-panel .navbar .navbar-toggler,
+  .main-panel .navbar .navbar-toggle-btn {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Position toggle button on the left side for mobile */
+  .navbar .navbar-toggle-btn.mobile-only {
+    order: 0 !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+  }
+  
+  /* Adjust brand position */
+  .navbar .navbar-brand {
+    order: 1 !important;
+    margin-left: 10px;
+  }
+  
+  /* Adjust user menu position */
+  .navbar .container > [slot="container-after"] {
+    order: 2 !important;
+  }
+}
+
+/* Hide toggle button on desktop */
+@media (min-width: 992px) {
+  .navbar .navbar-toggle-btn.mobile-only,
+  .navbar .navbar-toggler.mobile-only {
+    display: none !important;
+  }
+}
 </style>
 
