@@ -4,108 +4,58 @@
       <div class="login-card">
         <div class="login-header">
           <h2 class="login-title">CMS Admin</h2>
-          <p class="login-subtitle">Sign in to your account</p>
-          <!-- Dev mode indicator -->
-          <div v-if="isDevMode" class="dev-mode-banner">
-            <i class="ni ni-notification-70"></i>
-            Development Mode: Any credentials will work
-          </div>
+          <p class="login-subtitle">Sign in with Keycloak</p>
         </div>
 
-        <form @submit.prevent="handleLogin" class="login-form">
+        <div class="login-form">
           <div v-if="error" class="alert alert-danger">
             {{ error }}
           </div>
 
-          <!-- Dev mode quick login -->
-          <div v-if="isDevMode" class="dev-quick-login">
-            <base-button
-              type="info"
-              size="sm"
-              @click="quickLogin"
-              block
-            >
-              Quick Login (Dev Mode)
-            </base-button>
-          </div>
-
-          <div class="form-group">
-            <label for="username">Username</label>
-            <base-input
-              id="username"
-              v-model="username"
-              type="text"
-              placeholder="Enter your username"
-              required
-              :disabled="loading"
-            ></base-input>
-          </div>
-
-          <div class="form-group">
-            <label for="password">Password</label>
-            <base-input
-              id="password"
-              v-model="password"
-              type="password"
-              placeholder="Enter your password"
-              required
-              :disabled="loading"
-            ></base-input>
-          </div>
-
           <base-button
             type="primary"
-            native-type="submit"
+            @click="handleLogin"
             :disabled="loading"
             class="login-button"
             block
           >
-            <span v-if="loading">Signing in...</span>
-            <span v-else>Sign In</span>
+            <span v-if="loading">Redirecting to login...</span>
+            <span v-else>Sign In with Keycloak</span>
           </base-button>
-        </form>
+
+          <p class="login-info">
+            You will be redirected to Keycloak to authenticate.
+            After successful authentication, you will be redirected back to the application.
+          </p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import BaseInput from '@/components/Inputs/BaseInput.vue'
 import BaseButton from '@/components/BaseButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const username = ref('')
-const password = ref('')
 const loading = ref(false)
 const error = ref('')
-
-// Check if dev mode is enabled
-const isDevMode = computed(() => {
-  return import.meta.env.VITE_DEV_MODE !== 'false' && (import.meta.env.DEV || import.meta.env.VITE_DEV_MODE === 'true')
-})
-
-const quickLogin = async () => {
-  username.value = 'dev'
-  password.value = 'dev'
-  await handleLogin()
-}
 
 const handleLogin = async () => {
   error.value = ''
   loading.value = true
 
   try {
-    await authStore.login(username.value, password.value)
-    // Redirect to dashboard after successful login
-    router.push('/dashboard')
+    // This will redirect to Keycloak login page
+    await authStore.login()
+    // Note: After Keycloak login, user will be redirected back
+    // and the auth store will automatically sync the user state
   } catch (err) {
     error.value = err?.message || 'Login failed. Please try again.'
-  } finally {
     loading.value = false
   }
 }

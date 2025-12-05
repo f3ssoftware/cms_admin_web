@@ -1,134 +1,200 @@
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+/**
+ * Authentication Store
+ * Refactored following SOLID principles and Vue 3 Composition API best practices
+ */
 
-interface User {
-  id: string
-  username: string
-  email: string
-  first_name?: string
-  last_name?: string
-  roles?: string[]
-}
+import { ref, computed } from "vue";
+import { defineStore } from "pinia";
+import * as keycloakLib from "@/lib/keycloak";
+import { convexClientService } from "@/services/convex/ConvexClientService";
+import type { User } from "@/types";
+import { handleConvexError, logError } from "@/utils/errorHandler";
 
-interface LoginResponse {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  token_type: string
-  user: User
-}
+/**
+ * Authentication Store
+ * Following Single Responsibility Principle - only handles authentication state
+ */
+export const useAuthStore = defineStore("auth", () => {
+  // State
+  const user = ref<User | null>(null);
+  const isLoading = ref(false);
+  const error = ref<Error | null>(null);
 
-export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem('access_token'))
-  const refreshToken = ref<string | null>(localStorage.getItem('refresh_token'))
-  const user = ref<User | null>(null)
-  const isAuthenticated = computed(() => !!token.value && !!user.value)
+  // Computed
+  const isAuthenticated = computed(() => {
+    return keycloakLib.isAuthenticated() && user.value !== null;
+  });
 
-  // Development mode - bypass API authentication
-  // Set VITE_DEV_MODE=false in .env to disable and use real API
-  const DEV_MODE = import.meta.env.VITE_DEV_MODE !== 'false' && (import.meta.env.DEV || import.meta.env.VITE_DEV_MODE === 'true')
-
-  // Initialize user from localStorage if token exists
-  const storedUser = localStorage.getItem('user')
-  if (storedUser) {
+  /**
+   * Initialize Keycloak and sync user state
+   * Following Open/Closed Principle - can be extended without modification
+   */
+  async function init(): Promise<void> {
     try {
-      user.value = JSON.parse(storedUser)
-    } catch (e) {
-      console.error('Failed to parse stored user:', e)
+      isLoading.value = true;
+      error.value = null;
+
+      const authenticated = await keycloakLib.initKeycloak();
+
+      if (authenticated) {
+        await syncUser();
+        keycloakLib.setupTokenRefresh();
+        syncConvexAuth();
+      }
+    } catch (err) {
+      const appError = handleConvexError(err);
+      error.value = err as Error;
+      logError(appError, "AuthInit");
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  async function login(username: string, password: string): Promise<void> {
-    try {
-      // Development bypass - accept any credentials when DEV_MODE is enabled
-      if (DEV_MODE) {
-        console.warn('⚠️ DEV MODE: Bypassing API authentication')
-        console.log('To use real API, set VITE_DEV_MODE=false in your .env file')
-        
-        // Create mock user data
-        const mockUser: User = {
-          id: 'dev-user-123',
-          username: username || 'dev',
-          email: `${username || 'dev'}@example.com`,
-          first_name: 'Dev',
-          last_name: 'User',
-          roles: ['admin']
-        }
-
-        const mockToken = 'dev-token-' + Date.now()
-        const mockRefreshToken = 'dev-refresh-' + Date.now()
-
-        // Store mock tokens
-        token.value = mockToken
-        refreshToken.value = mockRefreshToken
-        user.value = mockUser
-
-        // Persist to localStorage
-        localStorage.setItem('access_token', mockToken)
-        localStorage.setItem('refresh_token', mockRefreshToken)
-        localStorage.setItem('user', JSON.stringify(mockUser))
-
-        return Promise.resolve()
-      }
-
-      // Production mode - use real API
-      // Get API base URL from environment or use default
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
-      
-      const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Invalid credentials')
-      }
-
-      const data: LoginResponse = await response.json()
-
-      // Store tokens
-      token.value = data.access_token
-      refreshToken.value = data.refresh_token
-      user.value = data.user
-
-      // Persist to localStorage
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('refresh_token', data.refresh_token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-
-      return Promise.resolve()
-    } catch (error) {
-      console.error('Login error:', error)
-      throw error
+  /**
+   * Sync user info from Keycloak token
+   * Following Single Responsibility Principle
+   */
+  async function syncUser(): Promise<void> {
+    const userInfo = keycloakLib.getUserInfo();
+    if (userInfo) {
+      user.value = {
+        id: userInfo.id,
+        username: userInfo.username || "",
+        email: userInfo.email || "",
+        firstName: userInfo.firstName,
+        lastName: userInfo.lastName,
+        roles: userInfo.roles,
+      };
+    } else {
+      user.value = null;
     }
   }
 
-  function logout(): void {
-    token.value = null
-    refreshToken.value = null
-    user.value = null
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('user')
+  /**
+   * Sync Convex authentication token
+   * Following Single Responsibility Principle
+   */
+  function syncConvexAuth(): void {
+    const token = keycloakLib.getAccessToken();
+    if (token) {
+      convexClientService.setAuth(token);
+    } else {
+      convexClientService.setAuth(null);
+    }
   }
 
+  /**
+   * Login function - redirects to Keycloak login
+   */
+  async function login(): Promise<void> {
+    try {
+      isLoading.value = true;
+      error.value = null;
+      await keycloakLib.loginKeycloak();
+      // After login, Keycloak will redirect back
+      // The init function will be called again to sync user state
+    } catch (err) {
+      const appError = handleConvexError(err);
+      error.value = err as Error;
+      logError(appError, "AuthLogin");
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Logout function - redirects to Keycloak logout
+   */
+  async function logout(): Promise<void> {
+    try {
+      isLoading.value = true;
+      user.value = null;
+      convexClientService.setAuth(null);
+      await keycloakLib.logoutKeycloak();
+    } catch (err) {
+      const appError = handleConvexError(err);
+      error.value = err as Error;
+      logError(appError, "AuthLogout");
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Get access token for API calls
+   */
+  function getAccessToken(): string | null {
+    return keycloakLib.getAccessToken();
+  }
+
+  /**
+   * Get auth header for API calls
+   */
   function getAuthHeader(): string | null {
-    if (!token.value) return null
-    return `Bearer ${token.value}`
+    const token = getAccessToken();
+    if (!token) return null;
+    return `Bearer ${token}`;
+  }
+
+  /**
+   * Refresh token
+   */
+  async function refreshToken(): Promise<boolean> {
+    try {
+      const refreshed = await keycloakLib.refreshToken();
+      if (refreshed) {
+        syncConvexAuth();
+        await syncUser();
+      }
+      return refreshed;
+    } catch (err) {
+      const appError = handleConvexError(err);
+      logError(appError, "AuthRefreshToken");
+      return false;
+    }
+  }
+
+  /**
+   * Clear error
+   */
+  function clearError(): void {
+    error.value = null;
+  }
+
+  // Setup Keycloak event listeners
+  if (typeof window !== "undefined") {
+    keycloakLib.keycloak.onAuthSuccess = async () => {
+      await syncUser();
+      syncConvexAuth();
+    };
+
+    keycloakLib.keycloak.onAuthLogout = () => {
+      user.value = null;
+      convexClientService.setAuth(null);
+    };
+
+    keycloakLib.keycloak.onTokenExpired = async () => {
+      await refreshToken();
+    };
   }
 
   return {
-    token,
-    refreshToken,
-    user,
+    // State
+    user: computed(() => user.value),
+    isLoading: computed(() => isLoading.value),
+    error: computed(() => error.value),
     isAuthenticated,
+
+    // Actions
+    init,
     login,
     logout,
+    getAccessToken,
     getAuthHeader,
-  }
-})
-
+    refreshToken,
+    syncUser,
+    clearError,
+  };
+});

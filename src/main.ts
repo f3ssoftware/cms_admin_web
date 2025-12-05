@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { useAuthStore } from './stores/auth'
 
 // Import Vue Black Dashboard styles
 import './styles/main.scss'
@@ -28,4 +29,12 @@ app.use(RTLPlugin)
 // Register directives
 app.directive('click-outside', clickOutside)
 
-app.mount('#app')
+// Initialize Keycloak authentication before mounting
+const authStore = useAuthStore()
+authStore.init().then(() => {
+  app.mount('#app')
+}).catch((error) => {
+  console.error('Failed to initialize authentication:', error)
+  // Mount app anyway to show error state
+  app.mount('#app')
+})
