@@ -56,17 +56,27 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
+  // Debug: Log navigation attempt
+  console.log("Router guard - navigating to:", to.path, {
+    requiresAuth: to.meta.requiresAuth,
+    isAuthenticated: authStore.isAuthenticated,
+    hasUser: !!authStore.user,
+  });
+
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
     if (authStore.isAuthenticated) {
       // User is authenticated, allow access
+      console.log("Router guard - allowing access to protected route");
       next()
     } else {
       // User is not authenticated, redirect to login
+      console.log("Router guard - redirecting to login (not authenticated)");
       next({ name: 'login', query: { redirect: to.fullPath } })
     }
   } else if (to.name === 'login' && authStore.isAuthenticated) {
     // User is already logged in, redirect to dashboard
+    console.log("Router guard - user already logged in, redirecting to dashboard");
     next({ name: 'dashboard' })
   } else {
     // Route doesn't require auth, allow access

@@ -12,20 +12,45 @@
             {{ error }}
           </div>
 
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input
+              id="username"
+              v-model="username"
+              type="text"
+              class="form-input"
+              placeholder="Enter your username"
+              :disabled="loading"
+              @keyup.enter="handleLogin"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              v-model="password"
+              type="password"
+              class="form-input"
+              placeholder="Enter your password"
+              :disabled="loading"
+              @keyup.enter="handleLogin"
+            />
+          </div>
+
           <base-button
             type="primary"
             @click="handleLogin"
-            :disabled="loading"
+            :disabled="loading || !username || !password"
             class="login-button"
             block
           >
-            <span v-if="loading">Redirecting to login...</span>
-            <span v-else>Sign In with Keycloak</span>
+            <span v-if="loading">Signing in...</span>
+            <span v-else>Sign In</span>
           </base-button>
 
           <p class="login-info">
-            You will be redirected to Keycloak to authenticate.
-            After successful authentication, you will be redirected back to the application.
+            Enter your Keycloak credentials to authenticate.
           </p>
         </div>
       </div>
@@ -34,28 +59,52 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import * as keycloakLib from '@/lib/keycloak'
 import BaseButton from '@/components/BaseButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
+const username = ref('')
+const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
 const handleLogin = async () => {
+  if (!username.value || !password.value) {
+    error.value = 'Please enter both username and password'
+    return
+  }
+
   error.value = ''
   loading.value = true
 
   try {
-    // This will redirect to Keycloak login page
-    await authStore.login()
-    // Note: After Keycloak login, user will be redirected back
-    // and the auth store will automatically sync the user state
+    await authStore.login(username.value, password.value)
+    // Wait for Vue reactivity to update before navigating
+    await nextTick()
+    // Verify authentication state before redirecting
+    // Give it a small delay to ensure all reactive updates are complete
+    await new Promise(resolve => setTimeout(resolve, 50))
+    
+    if (authStore.isAuthenticated) {
+      const redirectPath = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+      router.push(redirectPath)
+    } else {
+      console.warn('Login completed but user is not authenticated. State:', {
+        isAuthenticated: authStore.isAuthenticated,
+        hasUser: !!authStore.user,
+        keycloakAuth: keycloakLib.isAuthenticated()
+      })
+      error.value = 'Login succeeded but authentication state is not set. Please try again.'
+    }
   } catch (err) {
-    error.value = err?.message || 'Login failed. Please try again.'
+    error.value = err?.message || 'Login failed. Please check your credentials and try again.'
+    password.value = '' // Clear password on error
+  } finally {
     loading.value = false
   }
 }
@@ -117,6 +166,33 @@ const handleLogin = async () => {
   font-size: 14px;
   font-weight: 500;
   margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .login-button {

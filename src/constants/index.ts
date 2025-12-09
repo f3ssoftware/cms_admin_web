@@ -13,6 +13,9 @@ export const CONFIG = {
     url: import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8080",
     realm: import.meta.env.VITE_KEYCLOAK_REALM || "portal",
     clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || "cms-admin-web",
+    // WARNING: Using client_secret in frontend is a security risk!
+    // Only use this for development/testing. For production, use PKCE instead.
+    clientSecret: import.meta.env.VITE_KEYCLOAK_CLIENT_SECRET || "",
   },
   app: {
     name: "CMS Admin",
@@ -102,4 +105,5 @@ export const DATE_FORMATS = {
   ISO: "YYYY-MM-DD",
   ISO_WITH_TIME: "YYYY-MM-DD HH:mm:ss",
 } as const;
+
 
