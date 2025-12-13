@@ -40,6 +40,7 @@ export const useAuthStore = defineStore("auth", () => {
         await syncUser();
         keycloakLib.setupTokenRefresh();
         syncConvexAuth();
+        // Don't redirect here - let the router guard handle it
       }
     } catch (err) {
       const appError = handleConvexError(err);
@@ -73,11 +74,17 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * Sync Convex authentication token
    * Following Single Responsibility Principle
+   * Convex expects a function that returns a Promise resolving to the token
    */
   function syncConvexAuth(): void {
     const token = keycloakLib.getAccessToken();
     if (token) {
-      convexClientService.setAuth(token);
+      // Convex expects a function that returns a Promise with the token
+      convexClientService.setAuth(async () => {
+        // Get the current token (it might have been refreshed)
+        const currentToken = keycloakLib.getAccessToken();
+        return currentToken || null;
+      });
     } else {
       convexClientService.setAuth(null);
     }
@@ -168,6 +175,7 @@ export const useAuthStore = defineStore("auth", () => {
     keycloakLib.keycloak.onAuthSuccess = async () => {
       await syncUser();
       syncConvexAuth();
+      // Don't redirect here - let the router guard handle it
     };
 
     keycloakLib.keycloak.onAuthLogout = () => {

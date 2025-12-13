@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import * as keycloakLib from '@/lib/keycloak'
 import DashboardLayout from '@/layout/dashboard/DashboardLayout.vue'
 
 // Lazy load pages
@@ -53,21 +54,45 @@ const router = createRouter({
 })
 
 // Navigation guard to protect routes
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  // Wait for auth initialization if still loading (but don't wait too long)
+  if (authStore.isLoading) {
+    let attempts = 0
+    while (authStore.isLoading && attempts < 10) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+      attempts++
+    }
+  }
+
+  // Check Keycloak authentication directly as well
+  const keycloakAuthenticated = keycloakLib.isAuthenticated()
+  const storeAuthenticated = authStore.isAuthenticated
+  const isAuthenticated = keycloakAuthenticated || storeAuthenticated
 
   // Check if route requires authentication
   if (to.meta.requiresAuth) {
-    if (authStore.isAuthenticated) {
+    if (isAuthenticated) {
       // User is authenticated, allow access
       next()
     } else {
       // User is not authenticated, redirect to login
-      next({ name: 'login', query: { redirect: to.fullPath } })
+      // Only redirect if not already going to login to avoid loops
+      if (to.name !== 'login') {
+        next({ name: 'login', query: { redirect: to.fullPath } })
+      } else {
+        next()
+      }
     }
-  } else if (to.name === 'login' && authStore.isAuthenticated) {
+  } else if (to.name === 'login' && isAuthenticated) {
     // User is already logged in, redirect to dashboard
-    next({ name: 'dashboard' })
+    // Only redirect if not already going to dashboard to avoid loops
+    if (from.name !== 'dashboard') {
+      next({ name: 'dashboard' })
+    } else {
+      next()
+    }
   } else {
     // Route doesn't require auth, allow access
     next()

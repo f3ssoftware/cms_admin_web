@@ -10,7 +10,8 @@ import { convexClientService } from "@/services/convex/ConvexClientService";
 export const convexClient = (convexClientService as any).client;
 
 // Helper function to set authentication token for Convex
-export function setConvexAuthToken(token: string | null) {
-  convexClientService.setAuth(token);
+// Convex expects a function that returns a Promise resolving to the token
+export function setConvexAuthToken(fetchToken: (() => Promise<string | null>) | null) {
+  convexClientService.setAuth(fetchToken);
 }
 

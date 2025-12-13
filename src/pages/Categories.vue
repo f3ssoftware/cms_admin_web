@@ -258,3 +258,6 @@ const confirmDelete = async (category: Category) => {
   gap: 0.5rem;
 }
 </style>
+
+
+

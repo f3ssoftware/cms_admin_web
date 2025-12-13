@@ -14,7 +14,7 @@ import { handleConvexError, logError } from "@/utils/errorHandler";
  * Following Interface Segregation Principle
  */
 export interface IConvexClientService {
-  setAuth(token: string | null): void;
+  setAuth(fetchToken: (() => Promise<string | null>) | null): void;
   watchQuery<Query extends FunctionReference<"query", "public", any, any>>(
     query: Query,
     args: Query["_args"],
@@ -39,8 +39,10 @@ class ConvexClientService implements IConvexClientService {
   constructor() {
     const url = CONFIG.convex.url;
     
-    if (!url) {
-      console.warn("VITE_CONVEX_URL is not set. Please set it in your .env file.");
+    if (!url || url.trim() === "" || url === "https://your-deployment.convex.cloud") {
+      const errorMessage = "VITE_CONVEX_URL is not set or is using the placeholder value. Please set it in your .env file with a valid Convex deployment URL from https://dashboard.convex.dev";
+      console.error(errorMessage);
+      throw new Error(errorMessage);
     }
 
     this.client = new ConvexClient(url);
@@ -48,10 +50,11 @@ class ConvexClientService implements IConvexClientService {
 
   /**
    * Sets authentication token for Convex client
+   * Convex expects a function that returns a Promise resolving to the token
    */
-  setAuth(token: string | null): void {
-    if (token) {
-      this.client.setAuth(token);
+  setAuth(fetchToken: (() => Promise<string | null>) | null): void {
+    if (fetchToken) {
+      this.client.setAuth(fetchToken);
     } else {
       this.client.clearAuth();
     }
