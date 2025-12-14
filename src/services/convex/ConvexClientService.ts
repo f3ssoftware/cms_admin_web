@@ -62,6 +62,7 @@ class ConvexClientService implements IConvexClientService {
 
   /**
    * Watches a Convex query and calls callbacks on updates
+   * Note: Convex browser client uses onUpdate for reactive queries
    */
   watchQuery<Query extends FunctionReference<"query", "public", any, any>>(
     query: Query,
@@ -72,14 +73,57 @@ class ConvexClientService implements IConvexClientService {
     }
   ): () => void {
     try {
-      return this.client.watchQuery(query as any, args || {}, {
-        onUpdate: callbacks.onUpdate,
-        onError: (error) => {
-          const appError = handleConvexError(error);
-          logError(appError, "ConvexQuery");
-          callbacks.onError(error);
-        },
-      });
+      // Convex browser client uses onUpdate method for reactive queries
+      // The pattern is: client.onUpdate(query, args, callback) returns unsubscribe function
+      if (typeof (this.client as any).onUpdate === 'function') {
+        const unsubscribe = (this.client as any).onUpdate(
+          query as any,
+          args || {},
+          (result: any) => {
+            try {
+              callbacks.onUpdate(result);
+            } catch (error) {
+              const appError = handleConvexError(error);
+              logError(appError, "ConvexQuery");
+              callbacks.onError(error as Error);
+            }
+          }
+        );
+        return unsubscribe || (() => {});
+      } else {
+        // Fallback: Use query with polling if onUpdate doesn't exist
+        console.warn("Convex client onUpdate not available, using polling fallback");
+        let isActive = true;
+        let pollInterval: number | null = null;
+        
+        const poll = async () => {
+          if (!isActive) return;
+          try {
+            const result = await (this.client as any).query(query as any, args || {});
+            if (isActive) {
+              callbacks.onUpdate(result);
+            }
+          } catch (error) {
+            if (isActive) {
+              const appError = handleConvexError(error);
+              logError(appError, "ConvexQuery");
+              callbacks.onError(error as Error);
+            }
+          }
+        };
+        
+        // Initial call
+        poll();
+        // Poll every 2 seconds
+        pollInterval = window.setInterval(poll, 2000);
+        
+        return () => {
+          isActive = false;
+          if (pollInterval !== null) {
+            clearInterval(pollInterval);
+          }
+        };
+      }
     } catch (error) {
       const appError = handleConvexError(error);
       logError(appError, "ConvexQuery");

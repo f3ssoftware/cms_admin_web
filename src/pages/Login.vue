@@ -19,13 +19,12 @@
             class="login-button"
             block
           >
-            <span v-if="loading">Redirecting to login...</span>
-            <span v-else>Sign In with Keycloak</span>
+            <span v-if="loading">Redirecting to Keycloak...</span>
+            <span v-else>Sign in with Keycloak</span>
           </base-button>
 
           <p class="login-info">
             You will be redirected to Keycloak to authenticate.
-            After successful authentication, you will be redirected back to the application.
           </p>
         </div>
       </div>
@@ -33,13 +32,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import BaseButton from '@/components/BaseButton.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 const loading = ref(false)
@@ -50,12 +47,16 @@ const handleLogin = async () => {
   loading.value = true
 
   try {
+    console.log('Login button clicked, calling authStore.login()')
     // This will redirect to Keycloak login page
     await authStore.login()
-    // Note: After Keycloak login, user will be redirected back
-    // and the auth store will automatically sync the user state
-  } catch (err) {
-    error.value = err?.message || 'Login failed. Please try again.'
+    // Note: After successful login, Keycloak will redirect back to the app
+    // The router guard will handle the redirect based on the 'redirect' query parameter
+    // Note: login() may redirect immediately, so code below may not execute
+    console.log('Login call completed (redirect may have happened)')
+  } catch (err: any) {
+    console.error('Login error:', err)
+    error.value = err?.message || 'Failed to redirect to Keycloak. Please try again.'
     loading.value = false
   }
 }
@@ -119,6 +120,33 @@ const handleLogin = async () => {
   margin-bottom: 8px;
 }
 
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .login-button {
   margin-top: 10px;
   height: 45px;
@@ -137,6 +165,14 @@ const handleLogin = async () => {
   background-color: rgba(255, 54, 54, 0.2);
   color: #ff6b6b;
   border: 1px solid rgba(255, 54, 54, 0.3);
+}
+
+.login-info {
+  color: #9a9a9a;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 20px;
+  margin-bottom: 0;
 }
 
 .dev-mode-banner {

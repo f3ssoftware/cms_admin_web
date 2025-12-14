@@ -8,17 +8,24 @@ export const list = query({
     categoryId: v.optional(v.id("categories")),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db.query("post");
-
     if (args.published !== undefined) {
-      query = query.withIndex("by_published", (q) => q.eq("published", args.published));
-    } else if (args.categoryId) {
-      query = query.withIndex("by_category", (q) => q.eq("categoryId", args.categoryId));
-    } else {
-      query = query.order("desc");
+      return await ctx.db
+        .query("post")
+        .withIndex("by_published", (q) => q.eq("published", args.published!))
+        .collect();
+    }
+    
+    if (args.categoryId) {
+      return await ctx.db
+        .query("post")
+        .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId!))
+        .collect();
     }
 
-    return await query.collect();
+    return await ctx.db
+      .query("post")
+      .order("desc")
+      .collect();
   },
 });
 

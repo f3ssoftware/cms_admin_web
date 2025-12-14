@@ -36,9 +36,11 @@ export async function initKeycloak(): Promise<boolean> {
 // Login function
 export async function loginKeycloak(): Promise<void> {
   try {
+    console.log("Keycloak login called, redirecting to Keycloak...");
     await keycloak.login({
       redirectUri: window.location.origin + "/dashboard",
     });
+    console.log("Keycloak login redirect initiated");
   } catch (error) {
     console.error("Failed to login with Keycloak", error);
     throw error;
