@@ -8,20 +8,30 @@ export const list = query({
     categoryId: v.optional(v.id("categories")),
   },
   handler: async (ctx, args) => {
+    // If both categoryId and published are provided, use categoryId index and filter by published
+    if (args.categoryId) {
+      const allNews = await ctx.db
+        .query("news")
+        .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId!))
+        .collect();
+      
+      // Filter by published if specified
+      if (args.published !== undefined) {
+        return allNews.filter((news) => news.published === args.published);
+      }
+      
+      return allNews;
+    }
+    
+    // If only published filter is provided, use published index
     if (args.published !== undefined) {
       return await ctx.db
         .query("news")
         .withIndex("by_published", (q) => q.eq("published", args.published!))
         .collect();
     }
-    
-    if (args.categoryId) {
-      return await ctx.db
-        .query("news")
-        .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId!))
-        .collect();
-    }
 
+    // No filters, return all news
     return await ctx.db
       .query("news")
       .order("desc")
@@ -46,6 +56,37 @@ export const getByAuthor = query({
       .withIndex("by_author", (q) => q.eq("authorId", args.authorId))
       .order("desc")
       .collect();
+  },
+});
+
+// Query: Get published news by category slug
+export const getByCategorySlug = query({
+  args: { categorySlug: v.string() },
+  handler: async (ctx, args) => {
+    // First, get the category by slug
+    const category = await ctx.db
+      .query("categories")
+      .withIndex("by_slug", (q) => q.eq("slug", args.categorySlug))
+      .first();
+    
+    if (!category) {
+      return [];
+    }
+    
+    // Then get all news for this category using the index
+    const allNews = await ctx.db
+      .query("news")
+      .withIndex("by_category", (q) => q.eq("categoryId", category._id))
+      .collect();
+    
+    // Filter to only published news and sort by date
+    return allNews
+      .filter((news) => news.published === true)
+      .sort((a, b) => {
+        const dateA = a.publishedAt || a.createdAt;
+        const dateB = b.publishedAt || b.createdAt;
+        return dateB - dateA;
+      });
   },
 });
 
