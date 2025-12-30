@@ -99,6 +99,7 @@ export const create = mutation({
     categoryId: v.id("categories"),
     authorId: v.string(), // Keycloak user ID
     published: v.boolean(),
+    isFeatured: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -109,6 +110,7 @@ export const create = mutation({
       categoryId: args.categoryId,
       authorId: args.authorId,
       published: args.published,
+      isFeatured: args.isFeatured,
       publishedAt: args.published ? now : undefined,
       createdAt: now,
       updatedAt: now,
@@ -125,6 +127,7 @@ export const update = mutation({
     excerpt: v.optional(v.string()),
     categoryId: v.optional(v.id("categories")),
     published: v.optional(v.boolean()),
+    isFeatured: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

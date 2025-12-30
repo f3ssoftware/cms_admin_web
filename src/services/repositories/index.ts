@@ -5,6 +5,7 @@
 
 export * from "./CategoryRepository";
 export * from "./NewsRepository";
+export * from "./NewsTranslationRepository";
 export * from "./PostRepository";
 export * from "./PostReplyRepository";
 

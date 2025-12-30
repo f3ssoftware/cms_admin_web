@@ -38,6 +38,7 @@ export type CategoryId = Id<"categories">;
 export type NewsId = Id<"news">;
 export type PostId = Id<"post">;
 export type PostReplyId = Id<"post_reply">;
+export type NewsTranslationId = Id<"newsTranslations">;
 
 // ==================== Category Types ====================
 
@@ -75,6 +76,7 @@ export interface News {
   categoryId: CategoryId;
   authorId: string; // Keycloak user ID
   published: boolean;
+  isFeatured?: boolean;
   publishedAt?: number;
   createdAt: number;
   updatedAt: number;
@@ -87,6 +89,7 @@ export interface CreateNewsInput {
   categoryId: CategoryId;
   authorId: string;
   published: boolean;
+  isFeatured?: boolean;
 }
 
 export interface UpdateNewsInput {
@@ -96,11 +99,89 @@ export interface UpdateNewsInput {
   excerpt?: string;
   categoryId?: CategoryId;
   published?: boolean;
+  isFeatured?: boolean;
 }
 
 export interface NewsListFilters {
   published?: boolean;
   categoryId?: CategoryId;
+}
+
+// ==================== News Translation Types ====================
+
+/**
+ * Supported locales for translations
+ * "en" is the source of truth in the news table
+ * Other locales are stored in newsTranslations table
+ */
+export type Locale = "en" | "pt" | "es" | "fr";
+export const SUPPORTED_LOCALES: readonly Locale[] = ["en", "pt", "es", "fr"] as const;
+export const TRANSLATION_LOCALES: readonly Locale[] = ["pt", "es", "fr"] as const;
+
+export type TranslationStatus = "draft" | "review" | "published";
+
+export interface NewsTranslation {
+  _id: NewsTranslationId;
+  _creationTime: number;
+  newsId: NewsId;
+  locale: Locale;
+  title: string;
+  excerpt?: string;
+  body: string;
+  slug?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  status: TranslationStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateTranslationInput {
+  newsId: NewsId;
+  locale: Locale;
+  title: string;
+  excerpt?: string;
+  body: string;
+  slug?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  status?: TranslationStatus;
+}
+
+export interface UpdateTranslationInput {
+  newsId: NewsId;
+  locale: Locale;
+  title?: string;
+  excerpt?: string;
+  body?: string;
+  slug?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  status?: TranslationStatus;
+}
+
+export interface TranslationCoverage {
+  total: number;
+  translated: number;
+  missing: Locale[];
+  coverage: Record<Locale, { exists: boolean; updatedAt?: number }>;
+}
+
+export interface NewsWithCoverage extends News {
+  translationCoverage: TranslationCoverage;
+}
+
+export interface NewsWithTranslation {
+  news: News;
+  translation: NewsTranslation | null;
+  effective: {
+    title: string;
+    excerpt: string;
+    body: string;
+    slug?: string;
+    seoTitle?: string;
+    seoDescription?: string;
+  };
 }
 
 // ==================== Post Types ====================
