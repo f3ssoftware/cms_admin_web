@@ -152,7 +152,8 @@
     <!-- Create/Edit Modal -->
     <modal
       :show="showCreateModal || showEditModal"
-      @close="closeModal"
+      @close="handleCloseModal"
+      :close-on-backdrop="false"
       modal-content-classes="bg-white"
     >
       <template #header>
@@ -198,13 +199,13 @@
         </div>
         <div class="form-group">
           <label>Content <span class="text-danger">*</span></label>
-          <textarea
+          <RichTextEditor
             v-model="form.content"
-            class="form-control"
-            rows="8"
-            placeholder="Article content"
-            required
-          ></textarea>
+            placeholder="Start writing your article content..."
+          />
+          <small class="form-text text-muted">
+            Use the toolbar above to format your content with headings, lists, links, images, and more.
+          </small>
         </div>
         <div class="form-group">
           <div class="form-check">
@@ -246,6 +247,7 @@
     <modal
       :show="showDeleteModal"
       @close="closeDeleteModal"
+      :close-on-backdrop="false"
       modal-content-classes="bg-white"
     >
       <template #header>
@@ -273,6 +275,30 @@
         </div>
       </div>
     </modal>
+
+    <!-- Unsaved Changes Confirmation Modal -->
+    <modal
+      :show="showUnsavedChangesModal"
+      @close="cancelCloseModal"
+      :close-on-backdrop="false"
+      modal-content-classes="bg-white"
+    >
+      <template #header>
+        <h5 class="modal-title">Unsaved Changes</h5>
+      </template>
+      <div>
+        <p>You have unsaved changes. Are you sure you want to close without saving?</p>
+        <p class="text-muted">Your changes will be lost.</p>
+        <div class="d-flex justify-content-end gap-2">
+          <base-button type="secondary" @click="cancelCloseModal">
+            Cancel
+          </base-button>
+          <base-button type="danger" @click="confirmCloseModal">
+            Close Without Saving
+          </base-button>
+        </div>
+      </div>
+    </modal>
   </div>
 </template>
 
@@ -283,6 +309,7 @@ import BaseButton from "@/components/BaseButton.vue";
 import BaseInput from "@/components/Inputs/BaseInput.vue";
 import BaseAlert from "@/components/BaseAlert.vue";
 import Modal from "@/components/Modal.vue";
+import RichTextEditor from "@/components/RichTextEditor/RichTextEditor.vue";
 import { useNews } from "@/composables/useNews";
 import { useCategories } from "@/composables/useCategories";
 import { formatDate } from "@/utils/date";
@@ -314,11 +341,25 @@ const categories = computed(() => categoriesList.value);
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
+const showUnsavedChangesModal = ref(false);
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
 const successMessage = ref("");
 const editingNewsId = ref<NewsId | null>(null);
 const newsToDelete = ref<News | null>(null);
+const initialFormState = ref<{
+  title: string;
+  content: string;
+  excerpt: string;
+  categoryId: string;
+  published: boolean;
+}>({
+  title: "",
+  content: "",
+  excerpt: "",
+  categoryId: "",
+  published: false,
+});
 const form = ref<{
   title: string;
   content: string;
@@ -351,13 +392,15 @@ const getCategoryName = (categoryId: CategoryId): string => {
 };
 
 const openCreateModal = () => {
-  form.value = {
+  const emptyForm = {
     title: "",
     content: "",
     excerpt: "",
     categoryId: "",
     published: false,
   };
+  form.value = { ...emptyForm };
+  initialFormState.value = { ...emptyForm };
   editingNewsId.value = null;
   showEditModal.value = false;
   showCreateModal.value = true;
@@ -365,17 +408,46 @@ const openCreateModal = () => {
   successMessage.value = "";
 };
 
+const hasUnsavedChanges = (): boolean => {
+  return (
+    form.value.title !== initialFormState.value.title ||
+    form.value.content !== initialFormState.value.content ||
+    form.value.excerpt !== initialFormState.value.excerpt ||
+    form.value.categoryId !== initialFormState.value.categoryId ||
+    form.value.published !== initialFormState.value.published
+  );
+};
+
+const handleCloseModal = () => {
+  if (hasUnsavedChanges()) {
+    showUnsavedChangesModal.value = true;
+  } else {
+    closeModal();
+  }
+};
+
+const cancelCloseModal = () => {
+  showUnsavedChangesModal.value = false;
+};
+
+const confirmCloseModal = () => {
+  showUnsavedChangesModal.value = false;
+  closeModal();
+};
+
 const closeModal = () => {
   showCreateModal.value = false;
   showEditModal.value = false;
   editingNewsId.value = null;
-  form.value = {
+  const emptyForm = {
     title: "",
     content: "",
     excerpt: "",
     categoryId: "",
     published: false,
   };
+  form.value = { ...emptyForm };
+  initialFormState.value = { ...emptyForm };
   clearError();
 };
 
@@ -387,13 +459,15 @@ const closeDeleteModal = () => {
 
 const editNews = (article: News) => {
   editingNewsId.value = article._id;
-  form.value = {
+  const articleForm = {
     title: article.title,
     content: article.content,
     excerpt: article.excerpt || "",
     categoryId: article.categoryId,
     published: article.published,
   };
+  form.value = { ...articleForm };
+  initialFormState.value = { ...articleForm };
   showEditModal.value = true;
   clearError();
   successMessage.value = "";
@@ -427,6 +501,8 @@ const handleSubmit = async () => {
       });
       if (success) {
         successMessage.value = `Article "${form.value.title}" updated successfully!`;
+        // Reset initial state to match current form state
+        initialFormState.value = { ...form.value };
         closeModal();
         setTimeout(() => {
           successMessage.value = "";
@@ -442,6 +518,8 @@ const handleSubmit = async () => {
       });
       if (id) {
         successMessage.value = `Article "${form.value.title}" created successfully!`;
+        // Reset initial state to match current form state
+        initialFormState.value = { ...form.value };
         closeModal();
         setTimeout(() => {
           successMessage.value = "";
