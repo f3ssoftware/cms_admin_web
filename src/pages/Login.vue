@@ -12,45 +12,19 @@
             {{ error }}
           </div>
 
-          <div class="form-group">
-            <label for="username">Username</label>
-            <input
-              id="username"
-              v-model="username"
-              type="text"
-              class="form-input"
-              placeholder="Enter your username"
-              :disabled="loading"
-              @keyup.enter="handleLogin"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              class="form-input"
-              placeholder="Enter your password"
-              :disabled="loading"
-              @keyup.enter="handleLogin"
-            />
-          </div>
-
           <base-button
             type="primary"
             @click="handleLogin"
-            :disabled="loading || !username || !password"
+            :disabled="loading"
             class="login-button"
             block
           >
-            <span v-if="loading">Signing in...</span>
-            <span v-else>Sign In</span>
+            <span v-if="loading">Redirecting to Keycloak...</span>
+            <span v-else>Sign in with Keycloak</span>
           </base-button>
 
           <p class="login-info">
-            Enter your Keycloak credentials to authenticate.
+            You will be redirected to Keycloak to authenticate.
           </p>
         </div>
       </div>
@@ -58,53 +32,31 @@
   </div>
 </template>
 
-<script setup>
-import { ref, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup lang="ts">
+import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import * as keycloakLib from '@/lib/keycloak'
 import BaseButton from '@/components/BaseButton.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
-const username = ref('')
-const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
 const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    error.value = 'Please enter both username and password'
-    return
-  }
-
   error.value = ''
   loading.value = true
 
   try {
-    await authStore.login(username.value, password.value)
-    // Wait for Vue reactivity to update before navigating
-    await nextTick()
-    // Verify authentication state before redirecting
-    // Give it a small delay to ensure all reactive updates are complete
-    await new Promise(resolve => setTimeout(resolve, 50))
-    
-    if (authStore.isAuthenticated) {
-      const redirectPath = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
-      router.push(redirectPath)
-    } else {
-      console.warn('Login completed but user is not authenticated. State:', {
-        isAuthenticated: authStore.isAuthenticated,
-        hasUser: !!authStore.user,
-        keycloakAuth: keycloakLib.isAuthenticated()
-      })
-      error.value = 'Login succeeded but authentication state is not set. Please try again.'
-    }
-  } catch (err) {
-    error.value = err?.message || 'Login failed. Please check your credentials and try again.'
-    password.value = '' // Clear password on error
-  } finally {
+    console.log('Login button clicked, calling authStore.login()')
+    // This will redirect to Keycloak login page
+    await authStore.login()
+    // Note: After successful login, Keycloak will redirect back to the app
+    // The router guard will handle the redirect based on the 'redirect' query parameter
+    // Note: login() may redirect immediately, so code below may not execute
+    console.log('Login call completed (redirect may have happened)')
+  } catch (err: any) {
+    console.error('Login error:', err)
+    error.value = err?.message || 'Failed to redirect to Keycloak. Please try again.'
     loading.value = false
   }
 }
@@ -213,6 +165,14 @@ const handleLogin = async () => {
   background-color: rgba(255, 54, 54, 0.2);
   color: #ff6b6b;
   border: 1px solid rgba(255, 54, 54, 0.3);
+}
+
+.login-info {
+  color: #9a9a9a;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 20px;
+  margin-bottom: 0;
 }
 
 .dev-mode-banner {

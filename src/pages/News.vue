@@ -6,15 +6,6 @@
           <h4 class="title">News</h4>
           <p class="category">Manage your news articles</p>
         </div>
-        <div class="col-lg-6 col-md-6 text-right">
-          <base-button
-            type="primary"
-            @click="openCreateModal"
-            :disabled="isLoading"
-          >
-            <i class="ni ni-fat-add"></i> Create New Article
-          </base-button>
-        </div>
       </div>
     </div>
     <div class="row">
@@ -23,127 +14,80 @@
           <template slot="header">
             <div class="d-flex justify-content-between align-items-center">
               <h5 class="card-title mb-0">News Articles</h5>
-              <base-button
-                type="primary"
-                size="sm"
-                @click="openCreateModal"
-                :disabled="isLoading"
-              >
+              <base-button type="primary" size="sm" @click="openCreateModal">
                 <i class="ni ni-fat-add"></i> Add News
               </base-button>
             </div>
           </template>
-
-          <!-- Success Alert -->
-          <base-alert
-            v-if="successMessage"
-            type="success"
-            :dismissible="true"
-          >
-            <template #dismiss-icon>
-              <button
-                type="button"
-                class="close"
-                aria-label="Close"
-                @click="successMessage = ''"
-              >
-                <span aria-hidden="true">
-                  <i class="tim-icons icon-simple-remove"></i>
-                </span>
-              </button>
-            </template>
-            {{ successMessage }}
-          </base-alert>
-
-          <!-- Error Alert -->
-          <base-alert
-            v-if="error"
-            type="danger"
-            :dismissible="true"
-          >
-            <template #dismiss-icon>
-              <button
-                type="button"
-                class="close"
-                aria-label="Close"
-                @click="clearError"
-              >
-                <span aria-hidden="true">
-                  <i class="tim-icons icon-simple-remove"></i>
-                </span>
-              </button>
-            </template>
+          <div v-if="error" class="alert alert-danger" role="alert">
             {{ error }}
-          </base-alert>
-
-          <!-- Loading State -->
-          <div v-if="isLoading" class="text-center py-4">
-            <i class="ni ni-spin ni-settings"></i> Loading news articles...
           </div>
-
-          <!-- News Table -->
-          <div v-else class="table-responsive">
-            <table class="table">
+          <div v-if="successMessage" class="alert alert-success" role="alert">
+            {{ successMessage }}
+          </div>
+          <div class="table-responsive">
+            <table class="table" v-if="!isLoading">
               <thead>
                 <tr>
                   <th>Title</th>
                   <th>Category</th>
-                  <th>Status</th>
+                  <th>Excerpt</th>
                   <th>Published</th>
-                  <th>Created</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="news.length === 0">
                   <td colspan="6" class="text-center text-muted">
-                    No news articles found. Create your first article!
+                    No news articles found. Click "Add News" to create one.
                   </td>
                 </tr>
                 <tr v-for="article in news" :key="article._id">
-                  <td><strong>{{ article.title }}</strong></td>
+                  <td>{{ article.title }}</td>
+                  <td>{{ getCategoryName(article.categoryId) }}</td>
+                  <td>{{ article.excerpt || "—" }}</td>
                   <td>
-                    <span class="badge badge-info">
-                      {{ getCategoryName(article.categoryId) }}
+                    <span v-if="article.publishedAt">
+                      {{ formatDate(article.publishedAt) }}
                     </span>
+                    <span v-else class="text-muted">—</span>
                   </td>
                   <td>
                     <span
-                      :class="[
-                        'badge',
-                        article.published ? 'badge-success' : 'badge-warning'
-                      ]"
+                      :class="
+                        article.published
+                          ? 'badge badge-success'
+                          : 'badge badge-warning'
+                      "
                     >
-                      {{ article.published ? 'Published' : 'Draft' }}
+                      {{ article.published ? "Published" : "Draft" }}
                     </span>
                   </td>
                   <td>
-                    {{ article.publishedAt ? formatDate(article.publishedAt) : '-' }}
-                  </td>
-                  <td>{{ formatDate(article.createdAt) }}</td>
-                  <td>
-                    <div class="d-flex gap-2">
-                      <base-button
-                        type="info"
-                        size="sm"
-                        @click="editNews(article)"
-                        :disabled="isLoading"
-                      >
-                        <i class="ni ni-ruler-pencil"></i> Edit
-                      </base-button>
-                      <base-button
-                        type="danger"
-                        size="sm"
-                        @click="openDeleteModal(article)"
-                        :disabled="isLoading"
-                      >
-                        <i class="ni ni-fat-remove"></i> Delete
-                      </base-button>
-                    </div>
+                    <base-button
+                      type="info"
+                      size="sm"
+                      @click="editNews(article)"
+                    >
+                      Edit
+                    </base-button>
+                    <base-button
+                      type="danger"
+                      size="sm"
+                      @click="openDeleteModal(article)"
+                    >
+                      Delete
+                    </base-button>
                   </td>
                 </tr>
               </tbody>
             </table>
+            <div v-else class="text-center p-4">
+              <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+              </div>
+            </div>
           </div>
         </card>
       </div>
@@ -303,7 +247,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import Card from "@/components/Cards/Card.vue";
 import BaseButton from "@/components/BaseButton.vue";
 import BaseInput from "@/components/Inputs/BaseInput.vue";
@@ -550,7 +494,6 @@ const handleDelete = async () => {
   } finally {
     isDeleting.value = false;
   }
-};
 </script>
 
 <style scoped>
@@ -565,156 +508,10 @@ const handleDelete = async () => {
   font-weight: 300;
   margin: 0;
 }
-.gap-2 {
-  gap: 0.5rem;
-}
-
-.table-responsive {
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  margin-bottom: 0;
-}
-
-.table th {
-  font-weight: 600;
-  border-bottom: 2px solid #dee2e6;
-  padding: 12px;
-}
-
-.table td {
-  padding: 12px;
-  vertical-align: middle;
-}
-
-.text-danger {
-  color: #ef8157 !important;
-}
-
-.text-right {
-  text-align: right;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.875em;
-  font-weight: 500;
-}
-
-.badge-success {
-  background-color: #28a745;
-  color: white;
-}
-
-.badge-warning {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-.badge-info {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.form-control {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: #5e72e4;
-  box-shadow: 0 0 0 0.2rem rgba(94, 114, 228, 0.25);
-}
-
-.form-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.form-check-input {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.form-check-label {
-  margin: 0;
-  cursor: pointer;
-}
-
-textarea.form-control {
-  resize: vertical;
-  min-height: 150px;
-}
-
-@media (max-width: 768px) {
-  .text-right {
-    margin-top: 15px;
-    justify-content: flex-start;
-  }
-}
-
-/* Ensure modal content has proper background and text color */
-:deep(.modal-content) {
-  background-color: #fff !important;
-  color: #333 !important;
-}
-
-:deep(.modal-body) {
-  color: #333 !important;
-}
-
-:deep(.modal-header) {
-  color: #333 !important;
-}
-
-:deep(.modal-header .modal-title) {
-  color: #333 !important;
-}
-
-:deep(.modal-body label) {
-  color: #333 !important;
-}
-
-:deep(.modal-body .form-control) {
-  color: #333 !important;
-}
-
-:deep(.modal-body .form-text) {
-  color: #6c757d !important;
-}
-
-:deep(.modal-body p) {
-  color: #333 !important;
-}
-
-:deep(.modal-body strong) {
-  color: #333 !important;
-}
-
-:deep(.modal-body select) {
-  color: #333 !important;
-  background-color: #fff !important;
-}
-
-:deep(.modal-body textarea) {
-  color: #333 !important;
-  background-color: #fff !important;
-}
-
-:deep(.modal-body input[type="text"]) {
-  color: #333 !important;
-  background-color: #fff !important;
-}
 </style>
+
+
+
+
+
+

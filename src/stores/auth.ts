@@ -19,11 +19,10 @@ export const useAuthStore = defineStore("auth", () => {
   const user = ref<User | null>(null);
   const isLoading = ref(false);
   const error = ref<Error | null>(null);
-  const hasValidToken = ref(false); // Track token validity reactively
 
   // Computed
   const isAuthenticated = computed(() => {
-    return hasValidToken.value && user.value !== null;
+    return keycloakLib.isAuthenticated() && user.value !== null;
   });
 
   /**
@@ -38,21 +37,15 @@ export const useAuthStore = defineStore("auth", () => {
       const authenticated = await keycloakLib.initKeycloak();
 
       if (authenticated) {
-        hasValidToken.value = true;
         await syncUser();
         keycloakLib.setupTokenRefresh();
         syncConvexAuth();
-      } else {
-        hasValidToken.value = false;
-        // Not authenticated is not an error - user just needs to login
-        console.log("User not authenticated. Redirect to login when accessing protected routes.");
+        // Don't redirect here - let the router guard handle it
       }
     } catch (err) {
-      // Only log errors, don't block app initialization
       const appError = handleConvexError(err);
       error.value = err as Error;
       logError(appError, "AuthInit");
-      console.warn("Keycloak initialization failed, but app will continue:", err);
     } finally {
       isLoading.value = false;
     }
@@ -64,7 +57,6 @@ export const useAuthStore = defineStore("auth", () => {
    */
   async function syncUser(): Promise<void> {
     const userInfo = keycloakLib.getUserInfo();
-    console.log("syncUser called, userInfo from keycloakLib:", userInfo);
     if (userInfo) {
       user.value = {
         id: userInfo.id,
@@ -74,9 +66,7 @@ export const useAuthStore = defineStore("auth", () => {
         lastName: userInfo.lastName,
         roles: userInfo.roles,
       };
-      console.log("User synced to store:", user.value);
     } else {
-      console.warn("No userInfo available from keycloakLib");
       user.value = null;
     }
   }
@@ -84,40 +74,33 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * Sync Convex authentication token
    * Following Single Responsibility Principle
+   * Convex expects a function that returns a Promise resolving to the token
    */
   function syncConvexAuth(): void {
     const token = keycloakLib.getAccessToken();
     if (token) {
-      convexClientService.setAuth(token);
+      // Convex expects a function that returns a Promise with the token
+      convexClientService.setAuth(async () => {
+        // Get the current token (it might have been refreshed)
+        const currentToken = keycloakLib.getAccessToken();
+        return currentToken || null;
+      });
     } else {
       convexClientService.setAuth(null);
     }
   }
 
   /**
-   * Login function - uses Direct Access Grants (username/password)
+   * Login function - redirects to Keycloak login
    */
-  async function login(username: string, password: string): Promise<void> {
+  async function login(): Promise<void> {
     try {
       isLoading.value = true;
       error.value = null;
-      await keycloakLib.loginKeycloak(username, password);
-      // After successful login, sync user state
-      hasValidToken.value = true; // Mark token as valid
-      await syncUser();
-      syncConvexAuth();
-      keycloakLib.setupTokenRefresh();
-      
-      // Debug: Verify authentication state after login
-      console.log("Login completed, auth state:", {
-        isAuthenticated: isAuthenticated.value,
-        hasUser: !!user.value,
-        hasValidToken: hasValidToken.value,
-        keycloakAuth: keycloakLib.isAuthenticated(),
-        user: user.value
-      });
+      await keycloakLib.loginKeycloak();
+      // After login, Keycloak will redirect back
+      // The init function will be called again to sync user state
     } catch (err) {
-      hasValidToken.value = false;
       const appError = handleConvexError(err);
       error.value = err as Error;
       logError(appError, "AuthLogin");
@@ -134,7 +117,6 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       isLoading.value = true;
       user.value = null;
-      hasValidToken.value = false;
       convexClientService.setAuth(null);
       await keycloakLib.logoutKeycloak();
     } catch (err) {
@@ -170,15 +152,11 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       const refreshed = await keycloakLib.refreshToken();
       if (refreshed) {
-        hasValidToken.value = true;
         syncConvexAuth();
         await syncUser();
-      } else {
-        hasValidToken.value = false;
       }
       return refreshed;
     } catch (err) {
-      hasValidToken.value = false;
       const appError = handleConvexError(err);
       logError(appError, "AuthRefreshToken");
       return false;
@@ -192,8 +170,23 @@ export const useAuthStore = defineStore("auth", () => {
     error.value = null;
   }
 
-  // Note: Event listeners removed - we're using Direct Access Grants flow
-  // Token refresh is handled by setupTokenRefresh() called after login
+  // Setup Keycloak event listeners
+  if (typeof window !== "undefined") {
+    keycloakLib.keycloak.onAuthSuccess = async () => {
+      await syncUser();
+      syncConvexAuth();
+      // Don't redirect here - let the router guard handle it
+    };
+
+    keycloakLib.keycloak.onAuthLogout = () => {
+      user.value = null;
+      convexClientService.setAuth(null);
+    };
+
+    keycloakLib.keycloak.onTokenExpired = async () => {
+      await refreshToken();
+    };
+  }
 
   return {
     // State
