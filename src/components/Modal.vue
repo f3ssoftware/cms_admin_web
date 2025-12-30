@@ -2,7 +2,7 @@
   <Transition name="slide-y-up" :duration="animationDuration">
     <div
       class="modal fade"
-      @click.self="closeModal"
+      @click.self="handleBackdropClick"
       :class="[
         { 'show d-block': show },
         { 'd-none': !show },
@@ -111,11 +111,21 @@ export default {
       default: 500,
       description: "Modal transition duration",
     },
+    closeOnBackdrop: {
+      type: Boolean,
+      default: true,
+      description: "Whether clicking backdrop closes the modal",
+    },
   },
   methods: {
     closeModal() {
       this.$emit("update:show", false);
       this.$emit("close");
+    },
+    handleBackdropClick() {
+      if (this.closeOnBackdrop) {
+        this.closeModal();
+      }
     },
   },
   watch: {
