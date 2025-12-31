@@ -10,6 +10,7 @@
 
 import type * as categories from "../categories.js";
 import type * as news from "../news.js";
+import type * as newsTranslations from "../newsTranslations.js";
 import type * as postReplies from "../postReplies.js";
 import type * as posts from "../posts.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   categories: typeof categories;
   news: typeof news;
+  newsTranslations: typeof newsTranslations;
   postReplies: typeof postReplies;
   posts: typeof posts;
 }>;
@@ -53,7 +55,3 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {};
-
-
-
-

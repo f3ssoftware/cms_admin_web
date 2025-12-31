@@ -8,6 +8,8 @@ const Login = () => import('@/pages/Login.vue')
 const Dashboard = () => import('@/pages/Dashboard.vue')
 const Categories = () => import('@/pages/Categories.vue')
 const News = () => import('@/pages/News.vue')
+const NewsEdit = () => import('@/pages/NewsEdit.vue')
+const NewsTranslations = () => import('@/pages/NewsTranslations.vue')
 const NotFound = () => import('@/pages/NotFoundPage.vue')
 
 const router = createRouter({
@@ -41,6 +43,24 @@ const router = createRouter({
           path: 'news',
           name: 'news',
           component: News,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'news/new',
+          name: 'news-new',
+          component: NewsEdit,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'news/:id/edit',
+          name: 'news-edit',
+          component: NewsEdit,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'news/:id/translations',
+          name: 'news-translations',
+          component: NewsTranslations,
           meta: { requiresAuth: true }
         }
       ]

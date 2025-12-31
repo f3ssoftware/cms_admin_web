@@ -380,9 +380,25 @@ onBeforeUnmount(() => {
   outline: none;
   font-size: 16px;
   line-height: 1.6;
-  color: #333;
+  color: #000 !important;
+  background-color: #fff !important;
   font-weight: normal;
   font-style: normal;
+}
+
+/* Ensure all text elements are black by default */
+:deep(.ProseMirror *),
+:deep(.editor-content *) {
+  color: inherit;
+}
+
+:deep(.ProseMirror p),
+:deep(.editor-content p),
+:deep(.ProseMirror div),
+:deep(.editor-content div),
+:deep(.ProseMirror span),
+:deep(.editor-content span) {
+  color: #000 !important;
 }
 
 /* Placeholder styling */
@@ -395,34 +411,43 @@ onBeforeUnmount(() => {
 }
 
 /* Paragraphs */
-:deep(.editor-content p) {
+:deep(.editor-content p),
+:deep(.ProseMirror p) {
   margin: 0.5em 0;
+  color: #000 !important;
 }
 
 /* Headings */
-:deep(.editor-content h1) {
+:deep(.editor-content h1),
+:deep(.ProseMirror h1) {
   font-size: 2em;
   font-weight: bold;
   margin: 0.67em 0;
-  color: #333;
+  color: #000 !important;
 }
 
-:deep(.editor-content h2) {
+:deep(.editor-content h2),
+:deep(.ProseMirror h2) {
   font-size: 1.5em;
   font-weight: bold;
   margin: 0.75em 0;
-  color: #333;
+  color: #000 !important;
 }
 
 /* Lists */
 :deep(.editor-content ul),
-:deep(.editor-content ol) {
+:deep(.editor-content ol),
+:deep(.ProseMirror ul),
+:deep(.ProseMirror ol) {
   padding-left: 1.5em;
   margin: 0.5em 0;
+  color: #000 !important;
 }
 
-:deep(.editor-content li) {
+:deep(.editor-content li),
+:deep(.ProseMirror li) {
   margin: 0.25em 0;
+  color: #000 !important;
 }
 
 /* Text formatting - CRITICAL for visibility */
@@ -431,7 +456,7 @@ onBeforeUnmount(() => {
 :deep(.ProseMirror strong),
 :deep(.ProseMirror b) {
   font-weight: bold !important;
-  color: #333;
+  color: #000 !important;
 }
 
 :deep(.editor-content em),
@@ -439,13 +464,13 @@ onBeforeUnmount(() => {
 :deep(.ProseMirror em),
 :deep(.ProseMirror i) {
   font-style: italic !important;
-  color: #333;
+  color: #000 !important;
 }
 
 :deep(.editor-content u),
 :deep(.ProseMirror u) {
   text-decoration: underline !important;
-  color: #333;
+  color: #000 !important;
 }
 
 :deep(.editor-content s),
@@ -453,7 +478,7 @@ onBeforeUnmount(() => {
 :deep(.ProseMirror s),
 :deep(.ProseMirror strike) {
   text-decoration: line-through !important;
-  color: #333;
+  color: #000 !important;
 }
 
 /* Images */
@@ -475,11 +500,12 @@ onBeforeUnmount(() => {
 }
 
 /* Highlight */
-:deep(.editor-content mark) {
+:deep(.editor-content mark),
+:deep(.ProseMirror mark) {
   background-color: #ffeb3b;
   padding: 2px 4px;
   border-radius: 2px;
-  color: #333;
+  color: #000 !important;
 }
 
 /* Text alignment */
@@ -500,13 +526,14 @@ onBeforeUnmount(() => {
 }
 
 /* Code */
-:deep(.editor-content code) {
+:deep(.editor-content code),
+:deep(.ProseMirror code) {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 2px 4px;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
   font-size: 0.9em;
-  color: #333;
+  color: #000 !important;
 }
 
 :deep(.editor-content pre) {
@@ -523,11 +550,12 @@ onBeforeUnmount(() => {
 }
 
 /* Blockquote */
-:deep(.editor-content blockquote) {
+:deep(.editor-content blockquote),
+:deep(.ProseMirror blockquote) {
   border-left: 4px solid #5e72e4;
   padding-left: 1em;
   margin: 1em 0;
-  color: #666;
+  color: #000 !important;
   font-style: italic;
 }
 </style>
