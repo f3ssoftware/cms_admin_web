@@ -165,6 +165,11 @@ export default {
           name: "News",
           icon: "ni ni-paper-diploma text-success",
         },
+        {
+          path: "/games",
+          name: "Games",
+          icon: "ni ni-controller text-warning",
+        },
       ],
     })
 

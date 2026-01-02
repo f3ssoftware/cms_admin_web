@@ -71,5 +71,15 @@ export default defineSchema({
     .index("by_post", ["postId"])
     .index("by_author", ["authorId"])
     .index("by_parent", ["parentReplyId"]),
+
+  games: defineTable({
+    name: v.string(),
+    image: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"]),
 });
 

@@ -10,6 +10,7 @@ const Categories = () => import('@/pages/Categories.vue')
 const News = () => import('@/pages/News.vue')
 const NewsEdit = () => import('@/pages/NewsEdit.vue')
 const NewsTranslations = () => import('@/pages/NewsTranslations.vue')
+const Games = () => import('@/pages/Games.vue')
 const NotFound = () => import('@/pages/NotFoundPage.vue')
 
 const router = createRouter({
@@ -61,6 +62,12 @@ const router = createRouter({
           path: 'news/:id/translations',
           name: 'news-translations',
           component: NewsTranslations,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'games',
+          name: 'games',
+          component: Games,
           meta: { requiresAuth: true }
         }
       ]

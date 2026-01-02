@@ -17,7 +17,9 @@
     "lint:oxlint": "oxlint . --fix -D correctness --ignore-path .gitignore",
     "lint:eslint": "eslint . --fix --cache",
     "lint": "run-s lint:*",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "convex:dev": "npx convex dev --typecheck=disable",
+    "convex:deploy": "npx convex deploy --typecheck=disable --yes"
   },
   "dependencies": {
     "@tiptap/extension-color": "^3.13.0",
