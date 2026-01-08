@@ -73,6 +73,7 @@ export interface News {
   title: string;
   content: string;
   excerpt?: string;
+  coverImage?: string; // S3 URL for cover image
   categoryId: CategoryId;
   authorId: string; // Keycloak user ID
   published: boolean;
@@ -86,6 +87,7 @@ export interface CreateNewsInput {
   title: string;
   content: string;
   excerpt?: string;
+  coverImage?: string; // S3 URL for cover image
   categoryId: CategoryId;
   authorId: string;
   published: boolean;
@@ -97,6 +99,7 @@ export interface UpdateNewsInput {
   title?: string;
   content?: string;
   excerpt?: string;
+  coverImage?: string; // S3 URL for cover image
   categoryId?: CategoryId;
   published?: boolean;
   isFeatured?: boolean;

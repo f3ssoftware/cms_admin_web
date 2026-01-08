@@ -19,3 +19,4 @@ read -p "Press Enter to continue with deployment (or Ctrl+C to cancel)..."
 # Deploy with typecheck disabled
 npx convex deploy --typecheck=disable --yes
 
+

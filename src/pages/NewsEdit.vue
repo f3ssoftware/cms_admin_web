@@ -80,13 +80,60 @@
               </small>
             </div>
             <div class="form-group">
+              <label>Cover Image</label>
+              <div class="cover-image-upload">
+                <div v-if="coverImagePreview || form.coverImage" class="cover-image-preview">
+                  <img
+                    :src="coverImagePreview || form.coverImage"
+                    alt="Cover preview"
+                    class="preview-image"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-danger remove-image-btn"
+                    @click="removeCoverImage"
+                    :disabled="isUploadingCover"
+                  >
+                    <i class="ni ni-fat-remove"></i> Remove
+                  </button>
+                </div>
+                <div v-else class="cover-image-upload-area">
+                  <input
+                    ref="coverImageInputRef"
+                    type="file"
+                    accept="image/*"
+                    class="file-input"
+                    @change="handleCoverImageUpload"
+                    style="display: none"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    @click="triggerCoverImageUpload"
+                    :disabled="isUploadingCover"
+                  >
+                    <span v-if="isUploadingCover">
+                      <i class="ni ni-spin ni-settings"></i> Uploading...
+                    </span>
+                    <span v-else>
+                      <i class="ni ni-image"></i> Upload Cover Image
+                    </span>
+                  </button>
+                </div>
+                <small class="form-text text-muted">
+                  Upload a cover image for this article (recommended: 1200x630px)
+                </small>
+              </div>
+            </div>
+            <div class="form-group">
               <label>Content <span class="text-danger">*</span></label>
               <RichTextEditor
                 v-model="form.content"
                 placeholder="Start writing your article content..."
               />
               <small class="form-text text-muted">
-                Use the toolbar above to format your content with headings, lists, links, images, and more.
+                Use the toolbar above to format your content with headings, lists, links, images, and videos. 
+                Click the 🖼️ button to upload images or 🎥 button to upload videos directly to S3.
               </small>
             </div>
             <div class="form-group">
@@ -156,6 +203,7 @@ import BaseInput from "@/components/Inputs/BaseInput.vue";
 import RichTextEditor from "@/components/RichTextEditor/RichTextEditor.vue";
 import { useNews } from "@/composables/useNews";
 import { useCategories } from "@/composables/useCategories";
+import { uploadFile } from "@/services/s3/s3Service";
 import type { NewsId, CategoryId } from "@/types";
 
 const router = useRouter();
@@ -187,10 +235,14 @@ const newsId = computed(() => route.params.id as string);
 // Component state
 const isSubmitting = ref(false);
 const successMessage = ref("");
+const isUploadingCover = ref(false);
+const coverImageInputRef = ref<HTMLInputElement | null>(null);
+const coverImagePreview = ref<string>("");
 const form = ref<{
   title: string;
   content: string;
   excerpt: string;
+  coverImage?: string;
   categoryId: string;
   published: boolean;
   isFeatured: boolean;
@@ -198,6 +250,7 @@ const form = ref<{
   title: "",
   content: "",
   excerpt: "",
+  coverImage: undefined,
   categoryId: "",
   published: false,
   isFeatured: false,
@@ -224,10 +277,12 @@ watch(() => currentNews.value, (news) => {
       title: news.title,
       content: news.content,
       excerpt: news.excerpt || "",
+      coverImage: news.coverImage,
       categoryId: news.categoryId,
       published: news.published,
       isFeatured: news.isFeatured || false,
     };
+    coverImagePreview.value = news.coverImage || "";
   }
 }, { immediate: true });
 
@@ -239,6 +294,55 @@ const goBack = () => {
 const goToTranslations = () => {
   if (isEditMode.value) {
     router.push({ name: "news-translations", params: { id: newsId.value } });
+  }
+};
+
+const triggerCoverImageUpload = () => {
+  coverImageInputRef.value?.click();
+};
+
+const handleCoverImageUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  isUploadingCover.value = true;
+
+  try {
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      coverImagePreview.value = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to S3
+    const result = await uploadFile({
+      file,
+      type: 'image',
+      onProgress: (progress) => {
+        console.log(`Cover image upload progress: ${progress}%`);
+      },
+    });
+
+    // Update form with S3 URL
+    form.value.coverImage = result.url;
+  } catch (error) {
+    console.error('Error uploading cover image:', error);
+    alert(`Failed to upload cover image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    coverImagePreview.value = "";
+  } finally {
+    isUploadingCover.value = false;
+    // Reset input
+    if (input) input.value = '';
+  }
+};
+
+const removeCoverImage = () => {
+  form.value.coverImage = undefined;
+  coverImagePreview.value = "";
+  if (coverImageInputRef.value) {
+    coverImageInputRef.value.value = '';
   }
 };
 
@@ -258,6 +362,7 @@ const handleSubmit = async () => {
         title: form.value.title,
         content: form.value.content,
         excerpt: form.value.excerpt || undefined,
+        coverImage: form.value.coverImage,
         categoryId: form.value.categoryId as CategoryId,
         published: form.value.published,
         isFeatured: form.value.isFeatured,
@@ -273,6 +378,7 @@ const handleSubmit = async () => {
         title: form.value.title,
         content: form.value.content,
         excerpt: form.value.excerpt || undefined,
+        coverImage: form.value.coverImage,
         categoryId: form.value.categoryId as CategoryId,
         published: form.value.published,
         isFeatured: form.value.isFeatured,
@@ -428,6 +534,42 @@ export default {
   opacity: 1;
   font-size: 10px;
   margin-top: 0;
+}
+
+/* Cover Image Upload Styles */
+.cover-image-upload {
+  margin-top: 10px;
+}
+
+.cover-image-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cover-image-preview {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  display: block;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}
+
+.file-input {
+  display: none;
 }
 </style>
 

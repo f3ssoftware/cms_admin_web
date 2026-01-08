@@ -34,18 +34,35 @@ export const useAuthStore = defineStore("auth", () => {
       isLoading.value = true;
       error.value = null;
 
-      const authenticated = await keycloakLib.initKeycloak();
+      // Add timeout wrapper for initialization
+      const initPromise = keycloakLib.initKeycloak();
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Keycloak initialization timeout"));
+        }, 20000); // 20 second timeout
+      });
+
+      const authenticated = await Promise.race([initPromise, timeoutPromise]).catch((err) => {
+        // If initialization fails, log but don't block the app
+        console.warn("Keycloak initialization failed or timed out:", err);
+        return false;
+      });
 
       if (authenticated) {
         await syncUser();
         keycloakLib.setupTokenRefresh();
         syncConvexAuth();
         // Don't redirect here - let the router guard handle it
+      } else {
+        // Not authenticated, but that's okay - user can login manually
+        console.log("Keycloak: User not authenticated, can login manually");
       }
     } catch (err) {
+      // Log error but don't block app initialization
       const appError = handleConvexError(err);
       error.value = err as Error;
       logError(appError, "AuthInit");
+      console.warn("Keycloak initialization error (app will continue):", err);
     } finally {
       isLoading.value = false;
     }

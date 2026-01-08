@@ -15,6 +15,7 @@ export default defineSchema({
     title: v.string(),
     content: v.string(),
     excerpt: v.optional(v.string()),
+    coverImage: v.optional(v.string()), // S3 URL for cover image
     categoryId: v.id("categories"),
     authorId: v.string(), // Keycloak user ID
     published: v.boolean(),

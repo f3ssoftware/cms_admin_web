@@ -19,16 +19,34 @@ export const keycloak = new Keycloak(keycloakConfig);
 // Initialize Keycloak and return a promise
 export async function initKeycloak(): Promise<boolean> {
   try {
-    const authenticated = await keycloak.init({
+    // Add timeout to prevent hanging
+    const initPromise = keycloak.init({
       onLoad: "check-sso", // Check SSO on load
-      silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
+      // Disable silent SSO check to avoid timeout issues with iframe
+      // silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
       pkceMethod: "S256",
-      checkLoginIframe: false,
+      checkLoginIframe: false, // Disable iframe check to avoid timeout issues
+      enableLogging: import.meta.env.DEV, // Enable logging in development
+      messageReceiveTimeout: 5000, // 5 second timeout for messages
     });
 
+    // Add a timeout wrapper
+    const timeoutPromise = new Promise<boolean>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Keycloak initialization timeout after 10 seconds"));
+      }, 10000);
+    });
+
+    const authenticated = await Promise.race([initPromise, timeoutPromise]).catch((err) => {
+      console.warn("Keycloak initialization timeout or error:", err);
+      return false;
+    }) as boolean;
+    
     return authenticated;
   } catch (error) {
     console.error("Failed to initialize Keycloak", error);
+    // Don't throw - allow app to continue without authentication
+    // User can still try to login manually
     return false;
   }
 }

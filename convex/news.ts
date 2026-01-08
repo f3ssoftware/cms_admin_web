@@ -204,6 +204,7 @@ export const create = mutation({
     title: v.string(),
     content: v.string(),
     excerpt: v.optional(v.string()),
+    coverImage: v.optional(v.string()), // S3 URL for cover image
     categoryId: v.id("categories"),
     authorId: v.string(), // Keycloak user ID
     published: v.boolean(),
@@ -215,6 +216,7 @@ export const create = mutation({
       title: args.title,
       content: args.content,
       excerpt: args.excerpt,
+      coverImage: args.coverImage,
       categoryId: args.categoryId,
       authorId: args.authorId,
       published: args.published,
@@ -233,6 +235,7 @@ export const update = mutation({
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     excerpt: v.optional(v.string()),
+    coverImage: v.optional(v.string()), // S3 URL for cover image
     categoryId: v.optional(v.id("categories")),
     published: v.optional(v.boolean()),
     isFeatured: v.optional(v.boolean()),

@@ -139,6 +139,50 @@
           </button>
           
           <!-- Image Upload -->
+          <div class="file-upload-group">
+            <input
+              ref="imageInputRef"
+              type="file"
+              accept="image/*"
+              class="file-input"
+              @change="handleImageUpload"
+              style="display: none"
+            />
+            <button
+              type="button"
+              class="tool-button"
+              @click="triggerImageUpload"
+              title="Upload Image"
+              :disabled="isUploading"
+            >
+              <span v-if="isUploading && uploadType === 'image'">⏳</span>
+              <span v-else>🖼️</span>
+            </button>
+          </div>
+
+          <!-- Video Upload -->
+          <div class="file-upload-group">
+            <input
+              ref="videoInputRef"
+              type="file"
+              accept="video/*"
+              class="file-input"
+              @change="handleVideoUpload"
+              style="display: none"
+            />
+            <button
+              type="button"
+              class="tool-button"
+              @click="triggerVideoUpload"
+              title="Upload Video"
+              :disabled="isUploading"
+            >
+              <span v-if="isUploading && uploadType === 'video'">⏳</span>
+              <span v-else>🎥</span>
+            </button>
+          </div>
+
+          <!-- Image URL (fallback) -->
           <div class="image-input-group">
             <input
               type="text"
@@ -151,9 +195,9 @@
               type="button"
               class="image-button"
               @click="addImage"
-              title="Insert Image"
+              title="Insert Image from URL"
             >
-              🖼️
+              📎
             </button>
           </div>
         </div>
@@ -183,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onBeforeUnmount, watch } from "vue";
 import { useEditor, EditorContent } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -193,6 +237,7 @@ import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
+import { uploadFile, type FileType } from "@/services/s3/s3Service";
 
 interface Props {
   modelValue?: string;
@@ -211,6 +256,10 @@ const emit = defineEmits<{
 }>();
 
 const imageUrl = ref("");
+const imageInputRef = ref<HTMLInputElement | null>(null);
+const videoInputRef = ref<HTMLInputElement | null>(null);
+const isUploading = ref(false);
+const uploadType = ref<FileType | null>(null);
 
 const editor = useEditor({
   extensions: [
@@ -253,6 +302,77 @@ const addImage = () => {
   if (imageUrl.value && editor.value) {
     editor.value.chain().focus().setImage({ src: imageUrl.value }).run();
     imageUrl.value = "";
+  }
+};
+
+const triggerImageUpload = () => {
+  imageInputRef.value?.click();
+};
+
+const triggerVideoUpload = () => {
+  videoInputRef.value?.click();
+};
+
+const handleImageUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file || !editor.value) return;
+
+  isUploading.value = true;
+  uploadType.value = 'image';
+
+  try {
+    const result = await uploadFile({
+      file,
+      type: 'image',
+      onProgress: (progress) => {
+        // Progress tracking can be added here if needed
+        console.log(`Upload progress: ${progress}%`);
+      },
+    });
+
+    // Insert image into editor
+    editor.value.chain().focus().setImage({ src: result.url }).run();
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    alert(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } finally {
+    isUploading.value = false;
+    uploadType.value = null;
+    // Reset input
+    if (input) input.value = '';
+  }
+};
+
+const handleVideoUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file || !editor.value) return;
+
+  isUploading.value = true;
+  uploadType.value = 'video';
+
+  try {
+    const result = await uploadFile({
+      file,
+      type: 'video',
+      onProgress: (progress) => {
+        // Progress tracking can be added here if needed
+        console.log(`Upload progress: ${progress}%`);
+      },
+    });
+
+    // Insert video into editor using HTML
+    const videoHtml = `<video controls src="${result.url}" style="max-width: 100%; height: auto;"></video>`;
+    editor.value.chain().focus().insertContent(videoHtml).run();
+  } catch (error) {
+    console.error('Error uploading video:', error);
+    alert(`Failed to upload video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } finally {
+    isUploading.value = false;
+    uploadType.value = null;
+    // Reset input
+    if (input) input.value = '';
   }
 };
 
@@ -327,6 +447,15 @@ onBeforeUnmount(() => {
   background-color: #5e72e4;
   color: #fff;
   border-color: #5e72e4;
+}
+
+.file-upload-group {
+  display: inline-flex;
+  align-items: center;
+}
+
+.file-input {
+  display: none;
 }
 
 .image-input-group {
