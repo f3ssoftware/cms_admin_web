@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="news-page">
     <div class="header">
       <div class="row">
