@@ -247,7 +247,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useGames, useCreateGame, useUpdateGame, useDeleteGame, type Game } from '@/composables/useGames';
-import type { Id } from '@/convex/_generated/dataModel';
+import type { Id } from '@/convex/_generated/dataModel.d.ts';
 
 const { games, isLoading } = useGames();
 const createGame = useCreateGame();

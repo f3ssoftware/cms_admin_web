@@ -8,7 +8,7 @@ import {
   gameRepository,
   type GameRow,
 } from "@/services/repositories/GameRepository";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
 export type Game = GameRow;
 
