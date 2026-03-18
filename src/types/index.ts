@@ -32,7 +32,7 @@ export interface AuthState {
 
 // ==================== Convex Types ====================
 
-import type { Id } from "../convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel";
 
 export type CategoryId = Id<"categories">;
 export type NewsId = Id<"news">;

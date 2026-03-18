@@ -247,7 +247,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useGames, useCreateGame, useUpdateGame, useDeleteGame, type Game } from '@/composables/useGames';
-import { Id } from '@/convex/_generated/dataModel';
+import type { Id } from '@/convex/_generated/dataModel';
+import Card from '@/components/Cards/Card.vue';
+import BaseButton from '@/components/BaseButton.vue';
+import BaseAlert from '@/components/BaseAlert.vue';
+import BaseInput from '@/components/Inputs/BaseInput.vue';
+import Modal from '@/components/Modal.vue';
 
 const { games, isLoading } = useGames();
 const createGame = useCreateGame();
@@ -282,7 +287,20 @@ const formatDate = (timestamp: number) => {
 
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement;
-  img.src = 'https://via.placeholder.com/60x60?text=No+Image';
+  // Prevent infinite error loops if fallback also fails
+  img.onerror = null;
+  // Tiny inline SVG fallback (no network dependency)
+  img.src =
+    'data:image/svg+xml;utf8,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60">
+        <rect width="100%" height="100%" fill="#2b2b3d"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+              font-family="Arial, sans-serif" font-size="10" fill="#c7c7d1">
+          No Image
+        </text>
+      </svg>`
+    );
 };
 
 const openCreateModal = () => {

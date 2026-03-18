@@ -220,7 +220,6 @@ const handleDelete = async (id: NewsId) => {
 
 .table th {
   font-weight: 600;
-  background-color: #f8f9fa;
   border-bottom: 2px solid #dee2e6;
 }
 
@@ -252,14 +251,10 @@ const handleDelete = async (id: NewsId) => {
 .badge-secondary {
   background-color: #6c757d;
   color: #fff;
-}
-
-.badge-info {
+}.badge-info {
   background-color: #17a2b8;
   color: #fff;
-}
-
-.gap-2 {
+}.gap-2 {
   gap: 0.5rem;
 }
 </style>

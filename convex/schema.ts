@@ -78,6 +78,11 @@ export default defineSchema({
     image: v.string(),
     slug: v.string(),
     description: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    releaseDate: v.optional(v.string()),
+    developer: v.optional(v.string()),
+    publisher: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

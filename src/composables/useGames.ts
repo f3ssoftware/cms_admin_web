@@ -1,6 +1,8 @@
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../convex/_generated/api";
-import { Id } from "../convex/_generated/dataModel";
+import { computed } from "vue";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { convexClientService } from "@/services/convex/ConvexClientService";
+import { useConvexQuery } from "@/composables/useConvex";
 
 export interface Game {
   _id: Id<"games">;
@@ -14,35 +16,35 @@ export interface Game {
 }
 
 export const useGames = () => {
-  const games = useQuery(api.games.list);
-  const isLoading = games === undefined;
+  const { data, isLoading } = useConvexQuery(api.games.list, {});
+  const games = computed(() => data.value ?? []);
 
   return {
-    games: games || [],
+    games,
     isLoading,
   };
 };
 
 export const useGame = (id: Id<"games"> | null) => {
-  const game = useQuery(api.games.get, id ? { id } : "skip");
-  const isLoading = game === undefined;
+  const { data, isLoading } = useConvexQuery(api.games.get, id ? { id } : ({} as any));
+  const game = computed(() => (id ? (data.value ?? null) : null));
 
   return {
-    game: game || null,
+    game,
     isLoading,
   };
 };
 
 export const useCreateGame = () => {
-  return useMutation(api.games.create);
+  return (args: any) => convexClientService.mutation(api.games.create as any, args);
 };
 
 export const useUpdateGame = () => {
-  return useMutation(api.games.update);
+  return (args: any) => convexClientService.mutation(api.games.update as any, args);
 };
 
 export const useDeleteGame = () => {
-  return useMutation(api.games.remove);
+  return (args: any) => convexClientService.mutation(api.games.remove as any, args);
 };
 
 
