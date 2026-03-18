@@ -18,6 +18,7 @@ export default defineSchema({
     coverImage: v.optional(v.string()), // S3 URL for cover image
     categoryId: v.id("categories"),
     authorId: v.string(), // Keycloak user ID
+    authorName: v.optional(v.string()), // Author's display name (from JWT: firstName + lastName or username)
     published: v.boolean(),
     isFeatured: v.optional(v.boolean()),
     publishedAt: v.optional(v.number()),
@@ -52,6 +53,7 @@ export default defineSchema({
     excerpt: v.optional(v.string()),
     categoryId: v.optional(v.id("categories")),
     authorId: v.string(), // Keycloak user ID
+    authorName: v.optional(v.string()), // Author's display name (from JWT: name, firstName + lastName, or username)
     published: v.boolean(),
     publishedAt: v.optional(v.number()),
     createdAt: v.number(),

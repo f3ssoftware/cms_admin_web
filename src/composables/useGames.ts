@@ -1,48 +1,86 @@
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../convex/_generated/api";
-import { Id } from "../convex/_generated/dataModel";
+/**
+ * Games composable — uses ConvexClientService + repository (same auth as News/Categories).
+ * Avoids convex/react, which is for React and can cause confusing runtime issues in Vue.
+ */
 
-export interface Game {
-  _id: Id<"games">;
-  _creationTime: number;
-  name: string;
-  image: string;
-  slug: string;
-  description?: string;
-  createdAt: number;
-  updatedAt: number;
+import { ref, onMounted, onUnmounted } from "vue";
+import {
+  gameRepository,
+  type GameRow,
+} from "@/services/repositories/GameRepository";
+import type { Id } from "@/convex/_generated/dataModel";
+
+export type Game = GameRow;
+
+export function useGames() {
+  const games = ref<Game[]>([]);
+  const isLoading = ref(true);
+  let unsubscribe: (() => void) | null = null;
+
+  onMounted(() => {
+    unsubscribe = gameRepository.list()({
+      onUpdate: (result) => {
+        games.value = result;
+        isLoading.value = false;
+      },
+      onError: () => {
+        isLoading.value = false;
+      },
+    });
+  });
+
+  onUnmounted(() => {
+    unsubscribe?.();
+    unsubscribe = null;
+  });
+
+  return { games, isLoading };
 }
 
-export const useGames = () => {
-  const games = useQuery(api.games.list);
-  const isLoading = games === undefined;
+export function useGame(id: Id<"games"> | null) {
+  const game = ref<Game | null>(null);
+  const isLoading = ref(true);
+  let unsubscribe: (() => void) | null = null;
 
-  return {
-    games: games || [],
-    isLoading,
-  };
-};
+  onMounted(() => {
+    unsubscribe = gameRepository.get(id)({
+      onUpdate: (result) => {
+        game.value = result;
+        isLoading.value = false;
+      },
+      onError: () => {
+        isLoading.value = false;
+      },
+    });
+  });
 
-export const useGame = (id: Id<"games"> | null) => {
-  const game = useQuery(api.games.get, id ? { id } : "skip");
-  const isLoading = game === undefined;
+  onUnmounted(() => {
+    unsubscribe?.();
+    unsubscribe = null;
+  });
 
-  return {
-    game: game || null,
-    isLoading,
-  };
-};
+  return { game, isLoading };
+}
 
-export const useCreateGame = () => {
-  return useMutation(api.games.create);
-};
+export function useCreateGame() {
+  return (input: {
+    name: string;
+    image: string;
+    slug: string;
+    description?: string;
+  }) => gameRepository.create(input);
+}
 
-export const useUpdateGame = () => {
-  return useMutation(api.games.update);
-};
+export function useUpdateGame() {
+  return (input: {
+    id: Id<"games">;
+    name?: string;
+    image?: string;
+    slug?: string;
+    description?: string;
+  }) => gameRepository.update(input);
+}
 
-export const useDeleteGame = () => {
-  return useMutation(api.games.remove);
-};
-
-
+export function useDeleteGame() {
+  return (id: Id<"games">) => gameRepository.remove(id);
+}

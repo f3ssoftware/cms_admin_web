@@ -57,6 +57,7 @@ export const create = mutation({
     excerpt: v.optional(v.string()),
     categoryId: v.optional(v.id("categories")),
     authorId: v.string(), // Keycloak user ID
+    authorName: v.optional(v.string()), // Author's display name (from JWT: name, firstName + lastName, or username)
     published: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -67,6 +68,7 @@ export const create = mutation({
       excerpt: args.excerpt,
       categoryId: args.categoryId,
       authorId: args.authorId,
+      authorName: args.authorName, // Store author name from JWT
       published: args.published,
       publishedAt: args.published ? now : undefined,
       createdAt: now,
@@ -82,6 +84,7 @@ export const update = mutation({
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     excerpt: v.optional(v.string()),
+    authorName: v.optional(v.string()), // Author's display name (can be updated if author changes)
     categoryId: v.optional(v.id("categories")),
     published: v.optional(v.boolean()),
   },

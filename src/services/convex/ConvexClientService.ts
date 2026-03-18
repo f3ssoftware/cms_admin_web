@@ -14,7 +14,12 @@ import { handleConvexError, logError } from "@/utils/errorHandler";
  * Following Interface Segregation Principle
  */
 export interface IConvexClientService {
-  setAuth(fetchToken: (() => Promise<string | null>) | null): void;
+  setAuth(
+    fetchToken:
+      | (() => Promise<string | null>)
+      | ((args: { forceRefreshToken: boolean }) => Promise<string | null>)
+      | null
+  ): void;
   watchQuery<Query extends FunctionReference<"query", "public", any, any>>(
     query: Query,
     args: Query["_args"],
@@ -52,9 +57,22 @@ class ConvexClientService implements IConvexClientService {
    * Sets authentication token for Convex client
    * Convex expects a function that returns a Promise resolving to the token
    */
-  setAuth(fetchToken: (() => Promise<string | null>) | null): void {
+  setAuth(
+    fetchToken:
+      | (() => Promise<string | null>)
+      | ((args: { forceRefreshToken: boolean }) => Promise<string | null>)
+      | null
+  ): void {
+    if (fetchToken != null && typeof fetchToken !== "function") {
+      console.error(
+        "[Convex] setAuth expects a function or null; got:",
+        typeof fetchToken
+      );
+      this.client.clearAuth();
+      return;
+    }
     if (fetchToken) {
-      this.client.setAuth(fetchToken);
+      this.client.setAuth(fetchToken as (args: { forceRefreshToken: boolean }) => Promise<string | null>);
     } else {
       this.client.clearAuth();
     }

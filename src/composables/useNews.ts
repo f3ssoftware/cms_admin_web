@@ -82,16 +82,27 @@ export function useNews() {
   /**
    * Create a new news article
    */
-  const createNews = async (input: Omit<CreateNewsInput, "authorId">): Promise<NewsId | null> => {
+  const createNews = async (input: Omit<CreateNewsInput, "authorId" | "authorName">): Promise<NewsId | null> => {
     if (!authStore.user) {
       error.value = "You must be logged in to create news";
       return null;
+    }
+
+    // Extract author name from JWT token (firstName + lastName or username)
+    let authorName: string | undefined;
+    if (authStore.user.firstName && authStore.user.lastName) {
+      authorName = `${authStore.user.firstName} ${authStore.user.lastName}`;
+    } else if (authStore.user.firstName) {
+      authorName = authStore.user.firstName;
+    } else if (authStore.user.username) {
+      authorName = authStore.user.username;
     }
 
     // Validate input
     const fullInput: CreateNewsInput = {
       ...input,
       authorId: authStore.user.id,
+      authorName, // Include author name from JWT
     };
 
     const validation = validateNews(fullInput);

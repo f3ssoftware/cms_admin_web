@@ -2,7 +2,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 
 // Initialize S3 client
 const s3Client = new S3Client({
-  region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
+  region: import.meta.env.VITE_AWS_REGION || 'us-west-1',
   credentials: {
     accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || '',
     secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || '',
@@ -54,35 +54,39 @@ export async function uploadFile({
   const fileName = `${timestamp}_${randomString}.${fileExtension}`;
   const key = `${folder}/${fileName}`;
 
+  // Convert File to Uint8Array to avoid ReadableStream issues with AWS SDK v3
+  // The File object from the browser doesn't have getReader() method that SDK expects
+  // Using Uint8Array instead of ArrayBuffer to ensure compatibility
+  const arrayBuffer = await file.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+
   // Prepare upload command
+  // Note: ACL is removed because modern S3 buckets often have ACLs disabled
+  // Public access should be configured via bucket policy instead
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
-    Body: file,
+    Body: uint8Array,
     ContentType: file.type,
-    ACL: 'public-read', // Make files publicly accessible
   });
 
   try {
-    // Simulate progress for small files (S3 SDK doesn't provide native progress tracking)
+    // Show initial progress
     if (onProgress) {
-      // Simulate progress in chunks
-      const progressInterval = setInterval(() => {
-        // This is a simplified progress simulation
-        // For real progress tracking, you'd need to use multipart uploads
-        onProgress(50);
-      }, 100);
-      
-      await s3Client.send(command);
-      clearInterval(progressInterval);
-      if (onProgress) onProgress(100);
-    } else {
-      await s3Client.send(command);
+      onProgress(10);
+    }
+
+    // Upload to S3
+    await s3Client.send(command);
+
+    // Show completion
+    if (onProgress) {
+      onProgress(100);
     }
 
     // Construct the public URL
     // For us-east-1, the URL format is different (no region in URL)
-    const region = import.meta.env.VITE_AWS_REGION || 'us-east-1';
+    const region = import.meta.env.VITE_AWS_REGION || 'us-west-1';
     const url = region === 'us-east-1'
       ? `https://${BUCKET_NAME}.s3.amazonaws.com/${key}`
       : `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
@@ -91,9 +95,20 @@ export async function uploadFile({
       url,
       key,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading file to S3:', error);
-    throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    // Provide more detailed error information
+    let errorMessage = 'Failed to upload file';
+    if (error?.$metadata?.httpStatusCode === 400) {
+      errorMessage = 'Bad Request - This might be due to ACL restrictions. Ensure your bucket allows public access via bucket policy.';
+    } else if (error?.$metadata?.httpStatusCode === 403) {
+      errorMessage = 'Access Denied - Check your AWS credentials and bucket permissions.';
+    } else if (error?.message) {
+      errorMessage = `Failed to upload file: ${error.message}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 }
 
