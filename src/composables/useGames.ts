@@ -1,50 +1,82 @@
-import { computed } from "vue";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { convexClientService } from "@/services/convex/ConvexClientService";
-import { useConvexQuery } from "@/composables/useConvex";
+/**
+ * Games composable — Convex access via `GameRepository`.
+ * (Matches the patterns used by `useNews` and other repositories.)
+ */
+import { ref, onMounted, onUnmounted } from "vue";
+import { gameRepository, type GameRow } from "@/services/repositories/GameRepository";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
-export interface Game {
-  _id: Id<"games">;
-  _creationTime: number;
-  name: string;
-  image: string;
-  slug: string;
-  description?: string;
-  createdAt: number;
-  updatedAt: number;
+export type Game = GameRow;
+
+export function useGames() {
+  const games = ref<Game[]>([]);
+  const isLoading = ref(true);
+  let unsubscribe: (() => void) | null = null;
+
+  onMounted(() => {
+    unsubscribe = gameRepository.list()({
+      onUpdate: (result) => {
+        games.value = result;
+        isLoading.value = false;
+      },
+      onError: () => {
+        isLoading.value = false;
+      },
+    });
+  });
+
+  onUnmounted(() => {
+    unsubscribe?.();
+    unsubscribe = null;
+  });
+
+  return { games, isLoading };
 }
 
-export const useGames = () => {
-  const { data, isLoading } = useConvexQuery(api.games.list, {});
-  const games = computed(() => data.value ?? []);
+export function useGame(id: Id<"games"> | null) {
+  const game = ref<Game | null>(null);
+  const isLoading = ref(true);
+  let unsubscribe: (() => void) | null = null;
 
-  return {
-    games,
-    isLoading,
-  };
-};
+  onMounted(() => {
+    unsubscribe = gameRepository.get(id)({
+      onUpdate: (result) => {
+        game.value = result;
+        isLoading.value = false;
+      },
+      onError: () => {
+        isLoading.value = false;
+      },
+    });
+  });
 
-export const useGame = (id: Id<"games"> | null) => {
-  const { data, isLoading } = useConvexQuery(api.games.get, id ? { id } : ({} as any));
-  const game = computed(() => (id ? (data.value ?? null) : null));
+  onUnmounted(() => {
+    unsubscribe?.();
+    unsubscribe = null;
+  });
 
-  return {
-    game,
-    isLoading,
-  };
-};
+  return { game, isLoading };
+}
 
-export const useCreateGame = () => {
-  return (args: any) => convexClientService.mutation(api.games.create as any, args);
-};
+export function useCreateGame() {
+  return (input: {
+    name: string;
+    image: string;
+    slug: string;
+    description?: string;
+  }) => gameRepository.create(input);
+}
 
-export const useUpdateGame = () => {
-  return (args: any) => convexClientService.mutation(api.games.update as any, args);
-};
+export function useUpdateGame() {
+  return (input: {
+    id: Id<"games">;
+    name?: string;
+    image?: string;
+    slug?: string;
+    description?: string;
+  }) => gameRepository.update(input);
+}
 
-export const useDeleteGame = () => {
-  return (args: any) => convexClientService.mutation(api.games.remove as any, args);
-};
-
-
+export function useDeleteGame() {
+  return (id: Id<"games">) => gameRepository.remove(id);
+}

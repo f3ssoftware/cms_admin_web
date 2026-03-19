@@ -88,6 +88,7 @@ export function getUserInfo() {
     id: token.sub, // Keycloak user ID
     username: token.preferred_username || token.username,
     email: token.email,
+    name: token.name, // Full name from JWT (e.g., "Felipe Sampaio")
     firstName: token.given_name,
     lastName: token.family_name,
     roles: token.realm_access?.roles || [],

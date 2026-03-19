@@ -9,6 +9,7 @@ export interface User {
   id: string; // Keycloak user ID (sub claim)
   username: string;
   email: string;
+  name?: string; // Full name from JWT (e.g., "Felipe Sampaio")
   firstName?: string;
   lastName?: string;
   roles?: string[];
@@ -31,8 +32,7 @@ export interface AuthState {
 }
 
 // ==================== Convex Types ====================
-
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
 export type CategoryId = Id<"categories">;
 export type NewsId = Id<"news">;
@@ -76,6 +76,7 @@ export interface News {
   coverImage?: string; // S3 URL for cover image
   categoryId: CategoryId;
   authorId: string; // Keycloak user ID
+  authorName?: string; // Author's display name (from JWT: firstName + lastName or username)
   published: boolean;
   isFeatured?: boolean;
   publishedAt?: number;
@@ -90,6 +91,7 @@ export interface CreateNewsInput {
   coverImage?: string; // S3 URL for cover image
   categoryId: CategoryId;
   authorId: string;
+  authorName?: string; // Author's display name (from JWT: firstName + lastName or username)
   published: boolean;
   isFeatured?: boolean;
 }
@@ -100,6 +102,7 @@ export interface UpdateNewsInput {
   content?: string;
   excerpt?: string;
   coverImage?: string; // S3 URL for cover image
+  authorName?: string; // Author's display name (can be updated)
   categoryId?: CategoryId;
   published?: boolean;
   isFeatured?: boolean;
@@ -197,6 +200,7 @@ export interface Post {
   excerpt?: string;
   categoryId?: CategoryId;
   authorId: string; // Keycloak user ID
+  authorName?: string; // Author's display name (from JWT: name, firstName + lastName, or username)
   published: boolean;
   publishedAt?: number;
   createdAt: number;
@@ -209,6 +213,7 @@ export interface CreatePostInput {
   excerpt?: string;
   categoryId?: CategoryId;
   authorId: string;
+  authorName?: string; // Author's display name (from JWT: name, firstName + lastName, or username)
   published: boolean;
 }
 
@@ -217,6 +222,7 @@ export interface UpdatePostInput {
   title?: string;
   content?: string;
   excerpt?: string;
+  authorName?: string; // Author's display name (can be updated)
   categoryId?: CategoryId;
   published?: boolean;
 }

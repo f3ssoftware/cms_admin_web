@@ -79,6 +79,7 @@ export const useAuthStore = defineStore("auth", () => {
         id: userInfo.id,
         username: userInfo.username || "",
         email: userInfo.email || "",
+        name: userInfo.name, // Full name from JWT
         firstName: userInfo.firstName,
         lastName: userInfo.lastName,
         roles: userInfo.roles,
@@ -93,18 +94,24 @@ export const useAuthStore = defineStore("auth", () => {
    * Following Single Responsibility Principle
    * Convex expects a function that returns a Promise resolving to the token
    */
+  /**
+   * Convex calls this with { forceRefreshToken: true } when refreshing — use Keycloak updateToken.
+   */
   function syncConvexAuth(): void {
-    const token = keycloakLib.getAccessToken();
-    if (token) {
-      // Convex expects a function that returns a Promise with the token
-      convexClientService.setAuth(async () => {
-        // Get the current token (it might have been refreshed)
-        const currentToken = keycloakLib.getAccessToken();
-        return currentToken || null;
-      });
-    } else {
+    if (!keycloakLib.isAuthenticated()) {
       convexClientService.setAuth(null);
+      return;
     }
+    convexClientService.setAuth(async ({ forceRefreshToken }) => {
+      try {
+        if (forceRefreshToken) {
+          await keycloakLib.refreshToken();
+        }
+        return keycloakLib.getAccessToken();
+      } catch {
+        return null;
+      }
+    });
   }
 
   /**
@@ -191,8 +198,8 @@ export const useAuthStore = defineStore("auth", () => {
   if (typeof window !== "undefined") {
     keycloakLib.keycloak.onAuthSuccess = async () => {
       await syncUser();
-      syncConvexAuth();
-      // Don't redirect here - let the router guard handle it
+      // Defer so keycloak.token is set after iframe / redirect flows
+      queueMicrotask(() => syncConvexAuth());
     };
 
     keycloakLib.keycloak.onAuthLogout = () => {

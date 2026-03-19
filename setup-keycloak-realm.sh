@@ -31,7 +31,7 @@ print_error() {
 }
 
 # Configuration - Can be overridden by environment variables
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8080}"
+KEYCLOAK_URL="${KEYCLOAK_URL:-https://auth.f3ssoftware.com}"
 ADMIN_USERNAME="${KEYCLOAK_ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
 REALM_NAME="${KEYCLOAK_REALM:-portal}"
@@ -50,8 +50,9 @@ wait_for_keycloak() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if curl -s -f "$KEYCLOAK_URL/health/ready" > /dev/null 2>&1 || \
-           curl -s -f "$KEYCLOAK_URL/health" > /dev/null 2>&1; then
+        if curl -s -k -f "$KEYCLOAK_URL/health/ready" > /dev/null 2>&1 || \
+           curl -s -k -f "$KEYCLOAK_URL/health" > /dev/null 2>&1 || \
+           curl -s -k -f "$KEYCLOAK_URL/realms/master" > /dev/null 2>&1; then
             print_success "Keycloak is ready!"
             return 0
         fi
@@ -62,6 +63,10 @@ wait_for_keycloak() {
     done
     
     print_error "Keycloak failed to start within the expected time"
+    print_error "Please verify:"
+    print_error "  - Keycloak is running"
+    print_error "  - URL is correct: $KEYCLOAK_URL"
+    print_error "  - Network connectivity"
     return 1
 }
 
@@ -69,20 +74,38 @@ wait_for_keycloak() {
 get_admin_token() {
     print_status "Getting admin token from master realm..."
     
-    local token_response=$(curl -s -X POST "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
+    local token_response=$(curl -s -k -X POST "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
         -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "username=$ADMIN_USERNAME&password=$ADMIN_PASSWORD&grant_type=password&client_id=admin-cli")
+        -d "username=$ADMIN_USERNAME&password=$ADMIN_PASSWORD&grant_type=password&client_id=admin-cli" \
+        -w "\n%{http_code}")
     
-    if [ $? -ne 0 ]; then
-        print_error "Failed to get admin token"
+    local curl_exit_code=$?
+    if [ $curl_exit_code -ne 0 ]; then
+        print_error "Failed to connect to Keycloak (curl exit code: $curl_exit_code)"
+        print_error "Please check:"
+        print_error "  - Keycloak URL is correct: $KEYCLOAK_URL"
+        print_error "  - Keycloak is running and accessible"
+        print_error "  - Network connectivity"
         return 1
     fi
     
-    local access_token=$(echo "$token_response" | jq -r '.access_token')
+    local http_code=$(echo "$token_response" | tail -n1)
+    local response_body=$(echo "$token_response" | sed '$d')
     
-    if [ "$access_token" = "null" ] || [ -z "$access_token" ]; then
+    if [ "$http_code" != "200" ]; then
+        print_error "Failed to get admin token (HTTP $http_code)"
+        echo "Response: $response_body"
+        if [ "$http_code" = "000" ]; then
+            print_error "Connection failed. Check if Keycloak is accessible at $KEYCLOAK_URL"
+        fi
+        return 1
+    fi
+    
+    local access_token=$(echo "$response_body" | jq -r '.access_token // empty')
+    
+    if [ -z "$access_token" ] || [ "$access_token" = "null" ]; then
         print_error "Failed to extract access token from response"
-        echo "Response: $token_response"
+        echo "Response: $response_body"
         return 1
     fi
     
@@ -94,9 +117,14 @@ check_realm_exists() {
     local admin_token="$1"
     local realm_name="$2"
     
-    local response=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$realm_name" \
+    local response=$(curl -s -k -X GET "$KEYCLOAK_URL/admin/realms/$realm_name" \
         -H "Authorization: Bearer $admin_token" \
         -w "\n%{http_code}")
+    
+    local curl_exit_code=$?
+    if [ $curl_exit_code -ne 0 ]; then
+        return 1  # Connection failed
+    fi
     
     local http_code=$(echo "$response" | tail -n1)
     
@@ -114,7 +142,7 @@ delete_realm() {
     
     print_status "Deleting existing realm '$realm_name'..."
     
-    local response=$(curl -s -X DELETE "$KEYCLOAK_URL/admin/realms/$realm_name" \
+    local response=$(curl -s -k -X DELETE "$KEYCLOAK_URL/admin/realms/$realm_name" \
         -H "Authorization: Bearer $admin_token" \
         -w "\n%{http_code}")
     
@@ -154,7 +182,6 @@ create_realm() {
         "accessCodeLifespanLogin": 1800,
         "actionTokenGeneratedByAdminLifespan": 43200,
         "actionTokenGeneratedByUserLifespan": 300,
-        "enabled": true,
         "sslRequired": "external",
         "registrationAllowed": false,
         "registrationEmailAsUsername": false,
@@ -174,20 +201,35 @@ create_realm() {
         "failureFactor": 30
     }'
     
-    local response=$(curl -s -X POST "$KEYCLOAK_URL/admin/realms" \
+    local response=$(curl -s -k -X POST "$KEYCLOAK_URL/admin/realms" \
         -H "Authorization: Bearer $admin_token" \
         -H "Content-Type: application/json" \
         -d "$realm_data" \
         -w "\n%{http_code}")
     
+    local curl_exit_code=$?
+    if [ $curl_exit_code -ne 0 ]; then
+        print_error "Failed to connect to Keycloak (curl exit code: $curl_exit_code)"
+        return 1
+    fi
+    
     local http_code=$(echo "$response" | tail -n1)
+    local response_body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "201" ]; then
         print_success "Realm '$REALM_NAME' created successfully"
         return 0
+    elif [ "$http_code" = "409" ]; then
+        print_warning "Realm '$REALM_NAME' already exists (HTTP 409)"
+        return 0
+    elif [ "$http_code" = "000" ]; then
+        print_error "Connection failed. Check if Keycloak is accessible at $KEYCLOAK_URL"
+        return 1
     else
         print_error "Failed to create realm '$REALM_NAME' (HTTP $http_code)"
-        echo "Response: $(echo "$response" | head -n -1)"
+        if [ -n "$response_body" ]; then
+            echo "Response: $response_body"
+        fi
         return 1
     fi
 }
@@ -198,7 +240,7 @@ check_client_exists() {
     local realm_name="$2"
     local client_id="$3"
     
-    local response=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$realm_name/clients?clientId=$client_id" \
+    local response=$(curl -s -k -X GET "$KEYCLOAK_URL/admin/realms/$realm_name/clients?clientId=$client_id" \
         -H "Authorization: Bearer $admin_token")
     
     local client_count=$(echo "$response" | jq '. | length')
@@ -216,7 +258,7 @@ get_client_uuid() {
     local realm_name="$2"
     local client_id="$3"
     
-    local response=$(curl -s -X GET "$KEYCLOAK_URL/admin/realms/$realm_name/clients?clientId=$client_id" \
+    local response=$(curl -s -k -X GET "$KEYCLOAK_URL/admin/realms/$realm_name/clients?clientId=$client_id" \
         -H "Authorization: Bearer $admin_token")
     
     echo "$response" | jq -r '.[0].id // empty'
@@ -233,9 +275,9 @@ delete_client() {
     if [ -n "$client_uuid" ] && [ "$client_uuid" != "null" ]; then
         print_status "Deleting existing client '$client_id'..."
         
-        local response=$(curl -s -X DELETE "$KEYCLOAK_URL/admin/realms/$realm_name/clients/$client_uuid" \
-            -H "Authorization: Bearer $admin_token" \
-            -w "\n%{http_code}")
+    local response=$(curl -s -k -X DELETE "$KEYCLOAK_URL/admin/realms/$realm_name/clients/$client_uuid" \
+        -H "Authorization: Bearer $admin_token" \
+        -w "\n%{http_code}")
         
         local http_code=$(echo "$response" | tail -n1)
         
@@ -366,13 +408,20 @@ create_client() {
         ]
     }'
     
-    local response=$(curl -s -X POST "$KEYCLOAK_URL/admin/realms/$REALM_NAME/clients" \
+    local response=$(curl -s -k -X POST "$KEYCLOAK_URL/admin/realms/$REALM_NAME/clients" \
         -H "Authorization: Bearer $admin_token" \
         -H "Content-Type: application/json" \
         -d "$client_data" \
         -w "\n%{http_code}")
     
+    local curl_exit_code=$?
+    if [ $curl_exit_code -ne 0 ]; then
+        print_error "Failed to connect to Keycloak (curl exit code: $curl_exit_code)"
+        return 1
+    fi
+    
     local http_code=$(echo "$response" | tail -n1)
+    local response_body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" = "201" ]; then
         print_success "Client '$CLIENT_ID' created successfully"
@@ -381,9 +430,17 @@ create_client() {
         enable_pkce "$admin_token"
         
         return 0
+    elif [ "$http_code" = "409" ]; then
+        print_warning "Client '$CLIENT_ID' already exists (HTTP 409)"
+        return 0
+    elif [ "$http_code" = "000" ]; then
+        print_error "Connection failed. Check if Keycloak is accessible at $KEYCLOAK_URL"
+        return 1
     else
         print_error "Failed to create client '$CLIENT_ID' (HTTP $http_code)"
-        echo "Response: $(echo "$response" | head -n -1)"
+        if [ -n "$response_body" ]; then
+            echo "Response: $response_body"
+        fi
         return 1
     fi
 }
@@ -408,11 +465,17 @@ enable_pkce() {
         }
     }'
     
-    local response=$(curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$REALM_NAME/clients/$client_uuid" \
+    local response=$(curl -s -k -X PUT "$KEYCLOAK_URL/admin/realms/$REALM_NAME/clients/$client_uuid" \
         -H "Authorization: Bearer $admin_token" \
         -H "Content-Type: application/json" \
         -d "$pkce_data" \
         -w "\n%{http_code}")
+    
+    local curl_exit_code=$?
+    if [ $curl_exit_code -ne 0 ]; then
+        print_warning "Failed to connect to Keycloak for PKCE update (curl exit code: $curl_exit_code)"
+        return 1
+    fi
     
     local http_code=$(echo "$response" | tail -n1)
     

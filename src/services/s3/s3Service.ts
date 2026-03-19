@@ -120,7 +120,7 @@ export async function uploadFile({
   let progressInterval: ReturnType<typeof setInterval> | null = null;
 
   try {
-    // Simulate progress for small files (S3 SDK doesn't provide native progress tracking)
+    // Show initial progress
     if (onProgress) {
       // Simulate progress in chunks
       progressInterval = setInterval(() => {
@@ -143,7 +143,7 @@ export async function uploadFile({
 
     // Construct the public URL
     // For us-east-1, the URL format is different (no region in URL)
-    const region = import.meta.env.VITE_AWS_REGION || 'us-east-1';
+    const region = import.meta.env.VITE_AWS_REGION || 'us-west-1';
     const url = region === 'us-east-1'
       ? `https://${bucketName}.s3.amazonaws.com/${key}`
       : `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
@@ -159,7 +159,18 @@ export async function uploadFile({
       progressInterval = null;
     }
     console.error('Error uploading file to S3:', error);
-    throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    // Provide more detailed error information
+    let errorMessage = 'Failed to upload file';
+    if (error?.$metadata?.httpStatusCode === 400) {
+      errorMessage = 'Bad Request - This might be due to ACL restrictions. Ensure your bucket allows public access via bucket policy.';
+    } else if (error?.$metadata?.httpStatusCode === 403) {
+      errorMessage = 'Access Denied - Check your AWS credentials and bucket permissions.';
+    } else if (error?.message) {
+      errorMessage = `Failed to upload file: ${error.message}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 }
 

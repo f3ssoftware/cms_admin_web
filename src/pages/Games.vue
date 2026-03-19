@@ -245,9 +245,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useGames, useCreateGame, useUpdateGame, useDeleteGame, type Game } from '@/composables/useGames';
-import type { Id } from '@/convex/_generated/dataModel';
+import type { Id } from '@/convex/_generated/dataModel.d.ts';
 import Card from '@/components/Cards/Card.vue';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseAlert from '@/components/BaseAlert.vue';
@@ -408,7 +408,7 @@ const handleDelete = async () => {
   clearError();
 
   try {
-    await deleteGame({ id: gameToDelete.value._id });
+    await deleteGame(gameToDelete.value._id);
     successMessage.value = 'Game deleted successfully!';
     closeDeleteModal();
     setTimeout(() => {

@@ -207,6 +207,7 @@ export const create = mutation({
     coverImage: v.optional(v.string()), // S3 URL for cover image
     categoryId: v.id("categories"),
     authorId: v.string(), // Keycloak user ID
+    authorName: v.optional(v.string()), // Author's display name (from JWT: firstName + lastName or username)
     published: v.boolean(),
     isFeatured: v.optional(v.boolean()),
   },
@@ -219,6 +220,7 @@ export const create = mutation({
       coverImage: args.coverImage,
       categoryId: args.categoryId,
       authorId: args.authorId,
+      authorName: args.authorName, // Store author name from JWT
       published: args.published,
       isFeatured: args.isFeatured,
       publishedAt: args.published ? now : undefined,
@@ -236,6 +238,7 @@ export const update = mutation({
     content: v.optional(v.string()),
     excerpt: v.optional(v.string()),
     coverImage: v.optional(v.string()), // S3 URL for cover image
+    authorName: v.optional(v.string()), // Author's display name (can be updated if author changes)
     categoryId: v.optional(v.id("categories")),
     published: v.optional(v.boolean()),
     isFeatured: v.optional(v.boolean()),
