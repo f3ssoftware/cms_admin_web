@@ -175,6 +175,8 @@ export interface TranslationCoverage {
 }
 
 export interface NewsWithCoverage extends News {
+  /** Resolved in admin list query for display */
+  categoryName?: string;
   translationCoverage: TranslationCoverage;
 }
 

@@ -227,6 +227,8 @@ export const useAuthStore = defineStore("auth", () => {
     getAuthHeader,
     refreshToken,
     syncUser,
+    /** Re-bind Keycloak token to Convex client (e.g. before queries right after navigation). */
+    syncConvexAuth,
     clearError,
   };
 });

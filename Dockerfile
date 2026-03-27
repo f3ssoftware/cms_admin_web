@@ -26,6 +26,16 @@ RUN if [ ! -f "src/convex/_generated/api.ts" ]; then \
       echo 'export const internal = {} as typeof InternalType;' >> src/convex/_generated/api.ts; \
     fi
 
+# Vite replaces import.meta.env.VITE_* at build time only; runtime container env does not apply.
+ARG VITE_CONVEX_URL
+ARG VITE_KEYCLOAK_URL=https://auth.f3ssoftware.com
+ARG VITE_KEYCLOAK_REALM=portal
+ARG VITE_KEYCLOAK_CLIENT_ID=cms-admin-web
+ENV VITE_CONVEX_URL=${VITE_CONVEX_URL}
+ENV VITE_KEYCLOAK_URL=${VITE_KEYCLOAK_URL}
+ENV VITE_KEYCLOAK_REALM=${VITE_KEYCLOAK_REALM}
+ENV VITE_KEYCLOAK_CLIENT_ID=${VITE_KEYCLOAK_CLIENT_ID}
+
 # Build the application
 RUN npm run build
 

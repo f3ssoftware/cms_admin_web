@@ -58,9 +58,9 @@
                 <tr v-for="item in newsWithCoverage" :key="item._id">
                   <td>{{ item._id }}</td>
                   <td>{{ item.title }}</td>
-                  <td>{{ item.categoryId }}</td>
+                  <td>{{ item.categoryName || item.categoryId }}</td>
                   <td>{{ item.excerpt || '-' }}</td>
-                  <td>{{ item.authorId }}</td>
+                  <td>{{ item.authorName || item.authorId }}</td>
                   <td>
                     <span :class="item.published ? 'badge badge-success' : 'badge badge-secondary'">
                       {{ item.published ? 'Yes' : 'No' }}
@@ -130,10 +130,12 @@ import Card from "@/components/Cards/Card.vue";
 import BaseButton from "@/components/BaseButton.vue";
 import { useNews } from "@/composables/useNews";
 import { useNewsTranslations } from "@/composables/useNewsTranslations";
+import { useAuthStore } from "@/stores/auth";
 import { formatDate } from "@/utils/date";
 import type { NewsId } from "@/types";
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 // Composables
 const {
@@ -158,6 +160,9 @@ const error = computed(() => newsError.value || translationError.value);
 
 // Lifecycle
 onMounted(() => {
+  if (authStore.isAuthenticated) {
+    authStore.syncConvexAuth();
+  }
   loadNewsWithCoverage();
 });
 

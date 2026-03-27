@@ -131,6 +131,11 @@ export const listNewsForAdmin = query({
         .collect();
     }
 
+    const categories = await ctx.db.query("categories").collect();
+    const categoryNameById = new Map(
+      categories.map((c) => [c._id, c.name] as const)
+    );
+
     // For each news item, get translation coverage
     const newsWithCoverage = await Promise.all(
       allNews.map(async (newsItem) => {
@@ -157,6 +162,7 @@ export const listNewsForAdmin = query({
 
         return {
           ...newsItem,
+          categoryName: categoryNameById.get(newsItem.categoryId),
           translationCoverage: {
             total: SUPPORTED_LOCALES.length,
             translated: SUPPORTED_LOCALES.length - missingLocales.length,
