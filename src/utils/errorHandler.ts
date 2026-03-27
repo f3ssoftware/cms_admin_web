@@ -3,7 +3,8 @@
  * Following Single Responsibility Principle
  */
 
-import type { AppError, ConvexError } from "@/types";
+import { ConvexError } from "convex/values";
+import type { AppError } from "@/types";
 import { ERROR_CODES } from "@/constants";
 
 /**
@@ -22,18 +23,35 @@ export function createError(
 }
 
 /**
+ * Extracts a user-friendly message from Convex errors.
+ * Convex throws ConvexError for application errors (error.data has the payload).
+ * For unexpected server errors, error.message is generic "Server Error" - check Convex Dashboard logs.
+ */
+function extractConvexMessage(error: unknown): string {
+  if (error instanceof ConvexError && error.data !== undefined) {
+    if (typeof error.data === "string") return error.data;
+    if (typeof error.data === "object" && error.data !== null && "message" in error.data) {
+      return String((error.data as { message: string }).message);
+    }
+    return String(error.data);
+  }
+  if (error instanceof Error) return error.message;
+  return "An unexpected error occurred";
+}
+
+/**
  * Handles Convex errors and converts them to AppError
  */
 export function handleConvexError(error: unknown): AppError {
   if (error instanceof Error) {
-    // Check if it's a Convex-specific error
-    if (error.message.includes("not found")) {
-      return createError(error.message, ERROR_CODES.NOT_FOUND);
+    const message = extractConvexMessage(error);
+    if (message.includes("not found")) {
+      return createError(message, ERROR_CODES.NOT_FOUND);
     }
-    if (error.message.includes("unauthorized") || error.message.includes("forbidden")) {
-      return createError(error.message, ERROR_CODES.UNAUTHORIZED);
+    if (message.includes("unauthorized") || message.includes("forbidden")) {
+      return createError(message, ERROR_CODES.UNAUTHORIZED);
     }
-    return createError(error.message, ERROR_CODES.CONVEX_ERROR, error);
+    return createError(message, ERROR_CODES.CONVEX_ERROR, error);
   }
 
   return createError(
@@ -99,6 +117,9 @@ export function getErrorMessage(error: AppError): string {
     case ERROR_CODES.VALIDATION_ERROR:
       return error.message || "Validation error occurred.";
     default:
+      if (error.message?.includes("Server Error") || error.message?.includes("CONVEX M(")) {
+        return `${error.message} — Check Convex Dashboard → Logs for details, or run \`npx convex dev\` to see live errors.`;
+      }
       return error.message || "An unexpected error occurred.";
   }
 }

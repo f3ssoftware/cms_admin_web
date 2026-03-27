@@ -1,13 +1,9 @@
 /**
- * Games composable — uses ConvexClientService + repository (same auth as News/Categories).
- * Avoids convex/react, which is for React and can cause confusing runtime issues in Vue.
+ * Games composable — Convex access via `GameRepository`.
+ * (Matches the patterns used by `useNews` and other repositories.)
  */
-
 import { ref, onMounted, onUnmounted } from "vue";
-import {
-  gameRepository,
-  type GameRow,
-} from "@/services/repositories/GameRepository";
+import { gameRepository, type GameRow } from "@/services/repositories/GameRepository";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
 export type Game = GameRow;

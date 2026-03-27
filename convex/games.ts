@@ -38,6 +38,11 @@ export const create = mutation({
     image: v.string(),
     slug: v.string(),
     description: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    releaseDate: v.optional(v.string()),
+    developer: v.optional(v.string()),
+    publisher: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -46,6 +51,11 @@ export const create = mutation({
       image: args.image,
       slug: args.slug,
       description: args.description,
+      videoUrl: args.videoUrl,
+      releaseDate: args.releaseDate,
+      developer: args.developer,
+      publisher: args.publisher,
+      tags: args.tags,
       createdAt: now,
       updatedAt: now,
     });
@@ -60,6 +70,11 @@ export const update = mutation({
     image: v.optional(v.string()),
     slug: v.optional(v.string()),
     description: v.optional(v.string()),
+    videoUrl: v.optional(v.string()),
+    releaseDate: v.optional(v.string()),
+    developer: v.optional(v.string()),
+    publisher: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

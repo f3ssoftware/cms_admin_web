@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { QueryCtx } from "./_generated/server";
 
@@ -212,21 +212,26 @@ export const create = mutation({
     isFeatured: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    return await ctx.db.insert("news", {
-      title: args.title,
-      content: args.content,
-      excerpt: args.excerpt,
-      coverImage: args.coverImage,
-      categoryId: args.categoryId,
-      authorId: args.authorId,
-      authorName: args.authorName, // Store author name from JWT
-      published: args.published,
-      isFeatured: args.isFeatured,
-      publishedAt: args.published ? now : undefined,
-      createdAt: now,
-      updatedAt: now,
-    });
+    try {
+      const now = Date.now();
+      return await ctx.db.insert("news", {
+        title: args.title,
+        content: args.content,
+        excerpt: args.excerpt,
+        coverImage: args.coverImage,
+        categoryId: args.categoryId,
+        authorId: args.authorId,
+        authorName: args.authorName, // Store author name from JWT
+        published: args.published,
+        isFeatured: args.isFeatured,
+        publishedAt: args.published ? now : undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new ConvexError({ message });
+    }
   },
 });
 
