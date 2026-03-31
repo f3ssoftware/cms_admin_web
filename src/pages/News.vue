@@ -225,11 +225,12 @@ const handleDelete = async (id: NewsId) => {
 
 .table th {
   font-weight: 600;
-  background-color: #f8f9fa;
   border-bottom: 2px solid #dee2e6;
+  padding: 12px;
 }
 
 .table td {
+  padding: 12px;
   vertical-align: middle;
 }
 
