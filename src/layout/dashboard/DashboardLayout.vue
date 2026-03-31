@@ -16,7 +16,21 @@
         :expand="navbarExpand"
       >
         <template #container-after>
-          <div class="navbar-nav ml-auto" v-if="user">
+          <div class="navbar-nav ml-auto nav-actions" v-if="user">
+            <div class="nav-item environment-switcher">
+              <label class="environment-label" for="environment-switcher">
+                Environment
+              </label>
+              <select
+                id="environment-switcher"
+                v-model="selectedEnvironment"
+                class="environment-select"
+                @change="handleEnvironmentChange"
+              >
+                <option value="production">Production</option>
+                <option value="development">Development</option>
+              </select>
+            </div>
             <div class="nav-item dropdown user-menu" ref="userMenuRef">
               <a
                 class="nav-link user-avatar"
@@ -57,8 +71,9 @@
 
 <script>
 import { computed, reactive, ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { CONFIG, STORAGE_KEYS } from '@/constants'
+import { convexClientService } from '@/services/convex/ConvexClientService'
 import BaseNav from "@/components/BaseNav.vue";
 
 export default {
@@ -66,12 +81,16 @@ export default {
     BaseNav,
   },
   setup() {
-    const router = useRouter()
     const authStore = useAuthStore()
 
     const user = computed(() => authStore.user)
     const userMenuOpen = ref(false)
     const userMenuRef = ref(null)
+    const selectedEnvironment = ref(
+      localStorage.getItem(STORAGE_KEYS.CONVEX_ENVIRONMENT) === 'development'
+        ? 'development'
+        : 'production'
+    )
 
     // Generate user initials from name or username
     const userInitials = computed(() => {
@@ -133,10 +152,22 @@ export default {
       document.removeEventListener('click', handleClickOutside)
     })
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
       closeUserMenu()
-      authStore.logout()
-      router.push('/login')
+      await authStore.logout()
+    }
+
+    const handleEnvironmentChange = async () => {
+      const convexUrl =
+        selectedEnvironment.value === 'development'
+          ? CONFIG.convex.environments.development
+          : CONFIG.convex.environments.production
+
+      localStorage.setItem(STORAGE_KEYS.CONVEX_ENVIRONMENT, selectedEnvironment.value)
+      convexClientService.setDeploymentUrl(convexUrl)
+      authStore.syncConvexAuth()
+
+      window.location.reload()
     }
 
     const state = reactive({
@@ -177,11 +208,13 @@ export default {
       user,
       userMenuOpen,
       userMenuRef,
+      selectedEnvironment,
       userInitials,
       userDisplayName,
       toggleUserMenu,
       closeUserMenu,
       handleLogout,
+      handleEnvironmentChange,
       ...state,
     }
   },
@@ -220,6 +253,46 @@ export default {
   padding: 0 !important;
   margin-left: 15px;
   text-decoration: none;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.environment-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.environment-label {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.environment-select {
+  min-width: 150px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.environment-select:focus {
+  outline: none;
+  border-color: rgba(94, 114, 228, 0.7);
+}
+
+.environment-select option {
+  color: #111;
 }
 
 .avatar-initials {
@@ -332,6 +405,20 @@ export default {
 
 /* Ensure mobile toggle button is visible on mobile - Global override */
 @media (max-width: 991.98px) {
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .environment-label {
+    display: none;
+  }
+
+  .environment-select {
+    min-width: 120px;
+    height: 34px;
+    font-size: 12px;
+  }
+
   .navbar .navbar-toggle-btn.mobile-only,
   .navbar .navbar-toggler.mobile-only,
   .main-panel .navbar .navbar-toggler,

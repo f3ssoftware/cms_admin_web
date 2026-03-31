@@ -8,6 +8,10 @@
 export const CONFIG = {
   convex: {
     url: import.meta.env.VITE_CONVEX_URL || "",
+    environments: {
+      development: "https://abundant-narwhal-987.convex.cloud",
+      production: "https://tough-perch-100.convex.cloud",
+    },
   },
   keycloak: {
     url: import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8080",
@@ -48,6 +52,7 @@ export const STORAGE_KEYS = {
   ACCESS_TOKEN: "access_token",
   REFRESH_TOKEN: "refresh_token",
   USER: "user",
+  CONVEX_ENVIRONMENT: "convex_environment",
 } as const;
 
 // ==================== Error Codes ====================

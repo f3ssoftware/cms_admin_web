@@ -6,7 +6,7 @@
 
 import { ConvexClient } from "convex/browser";
 import type { FunctionReference } from "convex/server";
-import { CONFIG } from "@/constants";
+import { CONFIG, STORAGE_KEYS } from "@/constants";
 import { handleConvexError, logError } from "@/utils/errorHandler";
 
 /**
@@ -40,17 +40,53 @@ export interface IConvexClientService {
  */
 class ConvexClientService implements IConvexClientService {
   private client: ConvexClient;
+  private currentUrl: string;
 
   constructor() {
-    const url = CONFIG.convex.url;
-    
+    this.currentUrl = this.resolveUrl();
+    this.client = new ConvexClient(this.currentUrl);
+  }
+
+  getCurrentUrl(): string {
+    return this.currentUrl;
+  }
+
+  setDeploymentUrl(url: string): void {
+    const normalizedUrl = this.validateUrl(url);
+    if (normalizedUrl === this.currentUrl) {
+      return;
+    }
+
+    this.clearAuth();
+    this.client = new ConvexClient(normalizedUrl);
+    this.currentUrl = normalizedUrl;
+  }
+
+  private resolveUrl(): string {
+    const selectedEnvironment =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(STORAGE_KEYS.CONVEX_ENVIRONMENT)
+        : null;
+
+    const runtimeUrl =
+      selectedEnvironment === "development"
+        ? CONFIG.convex.environments.development
+        : selectedEnvironment === "production"
+          ? CONFIG.convex.environments.production
+          : CONFIG.convex.url;
+
+    return this.validateUrl(runtimeUrl);
+  }
+
+  private validateUrl(url: string): string {
     if (!url || url.trim() === "" || url === "https://your-deployment.convex.cloud") {
-      const errorMessage = "VITE_CONVEX_URL is not set or is using the placeholder value. Please set it in your .env file with a valid Convex deployment URL from https://dashboard.convex.dev";
+      const errorMessage =
+        "VITE_CONVEX_URL is not set or is using the placeholder value. Please set it in your .env file with a valid Convex deployment URL from https://dashboard.convex.dev";
       console.error(errorMessage);
       throw new Error(errorMessage);
     }
 
-    this.client = new ConvexClient(url);
+    return url;
   }
 
   /**
@@ -68,14 +104,18 @@ class ConvexClientService implements IConvexClientService {
         "[Convex] setAuth expects a function or null; got:",
         typeof fetchToken
       );
-      this.client.clearAuth();
+      this.clearAuth();
       return;
     }
     if (fetchToken) {
       this.client.setAuth(fetchToken as (args: { forceRefreshToken: boolean }) => Promise<string | null>);
     } else {
-      this.client.clearAuth();
+      this.clearAuth();
     }
+  }
+
+  private clearAuth(): void {
+    (this.client as ConvexClient & { clearAuth?: () => void }).clearAuth?.();
   }
 
   /**

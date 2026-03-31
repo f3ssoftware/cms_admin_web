@@ -12,6 +12,22 @@
             {{ error }}
           </div>
 
+          <div class="form-group">
+            <label for="convex-environment">Data environment</label>
+            <select
+              id="convex-environment"
+              v-model="selectedEnvironment"
+              class="form-input form-select"
+              :disabled="loading"
+            >
+              <option value="production">Production</option>
+              <option value="development">Development</option>
+            </select>
+            <p class="environment-hint">
+              Current Convex URL: {{ currentConvexUrl }}
+            </p>
+          </div>
+
           <base-button
             type="primary"
             @click="handleLogin"
@@ -36,17 +52,33 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import BaseButton from '@/components/BaseButton.vue'
+import { CONFIG, STORAGE_KEYS } from '@/constants'
+import { convexClientService } from '@/services/convex/ConvexClientService'
 
 const authStore = useAuthStore()
 
 const loading = ref(false)
 const error = ref('')
+const selectedEnvironment = ref<'development' | 'production'>(
+  localStorage.getItem(STORAGE_KEYS.CONVEX_ENVIRONMENT) === 'development' ? 'development' : 'production',
+)
+const currentConvexUrl = ref(convexClientService.getCurrentUrl())
+
+const getConvexUrlForEnvironment = (environment: 'development' | 'production') =>
+  environment === 'development'
+    ? CONFIG.convex.environments.development
+    : CONFIG.convex.environments.production
 
 const handleLogin = async () => {
   error.value = ''
   loading.value = true
 
   try {
+    const convexUrl = getConvexUrlForEnvironment(selectedEnvironment.value)
+    localStorage.setItem(STORAGE_KEYS.CONVEX_ENVIRONMENT, selectedEnvironment.value)
+    convexClientService.setDeploymentUrl(convexUrl)
+    currentConvexUrl.value = convexClientService.getCurrentUrl()
+
     console.log('Login button clicked, calling authStore.login()')
     // This will redirect to Keycloak login page
     await authStore.login()
@@ -145,6 +177,18 @@ const handleLogin = async () => {
 
 .form-input::placeholder {
   color: rgba(255, 255, 255, 0.5);
+}
+
+.form-select {
+  appearance: none;
+}
+
+.environment-hint {
+  margin-top: 8px;
+  margin-bottom: 0;
+  color: #9a9a9a;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .login-button {
