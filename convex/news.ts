@@ -1,6 +1,11 @@
+import { makeFunctionReference } from "convex/server";
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { QueryCtx } from "./_generated/server";
+
+const syncNewsTranslationsRef = makeFunctionReference<"action">(
+  "googleTranslate:syncNewsTranslations"
+);
 
 /**
  * Helper function to merge news with translations
@@ -214,7 +219,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     try {
       const now = Date.now();
-      return await ctx.db.insert("news", {
+      const newsId = await ctx.db.insert("news", {
         title: args.title,
         content: args.content,
         excerpt: args.excerpt,
@@ -228,6 +233,22 @@ export const create = mutation({
         createdAt: now,
         updatedAt: now,
       });
+
+      try {
+        await ctx.scheduler.runAfter(0, syncNewsTranslationsRef, {
+          newsId,
+          title: args.title,
+          excerpt: args.excerpt,
+          body: args.content,
+        });
+      } catch (error) {
+        console.error(
+          `[News.create] Failed to schedule automatic translations for ${newsId}:`,
+          error
+        );
+      }
+
+      return newsId;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new ConvexError({ message });
@@ -266,6 +287,22 @@ export const update = mutation({
     }
 
     await ctx.db.patch(id, updateData);
+
+    try {
+      await ctx.scheduler.runAfter(0, syncNewsTranslationsRef, {
+        newsId: id,
+        title: updates.title ?? news.title,
+        excerpt: Object.prototype.hasOwnProperty.call(updates, "excerpt")
+          ? updates.excerpt
+          : news.excerpt,
+        body: updates.content ?? news.content,
+      });
+    } catch (error) {
+      console.error(
+        `[News.update] Failed to schedule automatic translations for ${id}:`,
+        error
+      );
+    }
   },
 });
 
@@ -273,6 +310,15 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("news") },
   handler: async (ctx, args) => {
+    const translations = await ctx.db
+      .query("newsTranslations")
+      .withIndex("by_newsId", (q) => q.eq("newsId", args.id))
+      .collect();
+
+    for (const translation of translations) {
+      await ctx.db.delete(translation._id);
+    }
+
     await ctx.db.delete(args.id);
   },
 });

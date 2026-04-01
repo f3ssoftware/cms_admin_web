@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 // Supported locales (excluding "en" which is the source of truth in news table)
 export const SUPPORTED_LOCALES = ["pt", "es", "fr"] as const;
@@ -259,6 +259,70 @@ export const upsertTranslation = mutation({
         updatedAt: now,
       });
     }
+  },
+});
+
+/**
+ * Internal mutation: Upsert an auto-translated draft translation.
+ * This is used by the Google Translation background action and intentionally
+ * resets locale-specific metadata to draft defaults on each regeneration.
+ */
+export const upsertAutoTranslatedTranslation = internalMutation({
+  args: {
+    newsId: v.id("news"),
+    locale: v.string(),
+    title: v.string(),
+    excerpt: v.optional(v.string()),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!SUPPORTED_LOCALES.includes(args.locale as Locale)) {
+      throw new Error(
+        `Unsupported locale: ${args.locale}. Supported: ${SUPPORTED_LOCALES.join(", ")}`
+      );
+    }
+
+    const news = await ctx.db.get(args.newsId);
+    if (!news) {
+      throw new Error("News not found");
+    }
+
+    const existing = await ctx.db
+      .query("newsTranslations")
+      .withIndex("by_newsId_locale", (q) =>
+        q.eq("newsId", args.newsId).eq("locale", args.locale)
+      )
+      .first();
+
+    const now = Date.now();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        title: args.title,
+        excerpt: args.excerpt,
+        body: args.body,
+        slug: undefined,
+        seoTitle: undefined,
+        seoDescription: undefined,
+        status: "draft",
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("newsTranslations", {
+      newsId: args.newsId,
+      locale: args.locale,
+      title: args.title,
+      excerpt: args.excerpt,
+      body: args.body,
+      slug: undefined,
+      seoTitle: undefined,
+      seoDescription: undefined,
+      status: "draft",
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
 
